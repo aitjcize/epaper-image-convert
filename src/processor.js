@@ -12,20 +12,27 @@ export const DEFAULT_THUMBNAIL_WIDTH = 400;
 export const DEFAULT_THUMBNAIL_HEIGHT = 240;
 
 /**
- * Helper function to get canvas context with image smoothing disabled
+ * Helper function to get canvas context with configurable image smoothing
+ * @param {HTMLCanvasElement} canvas - The canvas element
+ * @param {string} contextType - Context type (default: "2d")
+ * @param {boolean} enableSmoothing - Enable image smoothing for better quality scaling (default: false)
  */
-export function getCanvasContext(canvas, contextType = "2d") {
+export function getCanvasContext(
+  canvas,
+  contextType = "2d",
+  enableSmoothing = false,
+) {
   const ctx = canvas.getContext(contextType);
   if (ctx && contextType === "2d") {
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = enableSmoothing;
     if (ctx.mozImageSmoothingEnabled !== undefined) {
-      ctx.mozImageSmoothingEnabled = false;
+      ctx.mozImageSmoothingEnabled = enableSmoothing;
     }
     if (ctx.webkitImageSmoothingEnabled !== undefined) {
-      ctx.webkitImageSmoothingEnabled = false;
+      ctx.webkitImageSmoothingEnabled = enableSmoothing;
     }
     if (ctx.msImageSmoothingEnabled !== undefined) {
-      ctx.msImageSmoothingEnabled = false;
+      ctx.msImageSmoothingEnabled = enableSmoothing;
     }
   }
   return ctx;
@@ -587,7 +594,7 @@ export function resizeImageCover(
     tempCanvas.width = scaledWidth;
     tempCanvas.height = scaledHeight;
   }
-  const tempCtx = getCanvasContext(tempCanvas);
+  const tempCtx = getCanvasContext(tempCanvas, "2d", true);
   tempCtx.drawImage(sourceCanvas, 0, 0, scaledWidth, scaledHeight);
 
   const cropX = Math.round((scaledWidth - outputWidth) / 2);
@@ -601,7 +608,7 @@ export function resizeImageCover(
     outputCanvas.width = outputWidth;
     outputCanvas.height = outputHeight;
   }
-  const outputCtx = getCanvasContext(outputCanvas);
+  const outputCtx = getCanvasContext(outputCanvas, "2d", true);
   outputCtx.drawImage(
     tempCanvas,
     cropX,
@@ -642,7 +649,7 @@ export function generateThumbnail(
     thumbCanvas.height = thumbHeight;
   }
 
-  const thumbCtx = getCanvasContext(thumbCanvas);
+  const thumbCtx = getCanvasContext(thumbCanvas, "2d", true);
 
   const scaleX = thumbWidth / srcWidth;
   const scaleY = thumbHeight / srcHeight;
