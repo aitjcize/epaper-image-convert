@@ -1,5 +1,5 @@
 {
-  "name": "epaper-image-convert",
+  "name": "@aitjcize/epaper-image-convert",
   "version": "0.1.0",
   "description": "Convert images for e-paper displays with advanced tone mapping, dithering, and color palette optimization",
   "type": "module",
