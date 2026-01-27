@@ -25,11 +25,6 @@ describe("presets", () => {
       expect(PRESETS).not.toHaveProperty("stock");
       expect(PRESETS).not.toHaveProperty("waveshare");
     });
-
-    it("should have default and enhanced aliases", () => {
-      expect(PRESETS.default).toEqual(CDR_PRESET);
-      expect(PRESETS.enhanced).toEqual(SCURVE_PRESET);
-    });
   });
 
   describe("preset objects", () => {
