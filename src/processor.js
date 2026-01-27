@@ -25,6 +25,9 @@ export function getCanvasContext(
   const ctx = canvas.getContext(contextType);
   if (ctx && contextType === "2d") {
     ctx.imageSmoothingEnabled = enableSmoothing;
+    if (enableSmoothing) {
+      ctx.imageSmoothingQuality = "high";
+    }
     if (ctx.mozImageSmoothingEnabled !== undefined) {
       ctx.mozImageSmoothingEnabled = enableSmoothing;
     }
@@ -569,6 +572,15 @@ export function applyExifOrientation(canvas, orientation, createCanvas = null) {
 
 /**
  * Resize image with cover mode (scale and crop to fill)
+ *
+ * Browser vs Node.js scaling behavior:
+ * - Browser canvas drawImage uses simple pixel sampling for downscaling, which causes
+ *   aliasing artifacts when reducing by more than 2x. To work around this, we use
+ *   multi-step downscaling (halving repeatedly) until we're within 2x of target size.
+ * - Node.js canvas (node-canvas) uses proper interpolation algorithms internally,
+ *   so single-step scaling produces good quality results.
+ *
+ * Reference: https://stackoverflow.com/questions/18922880/html5-canvas-resize-downscale-image-high-quality
  */
 export function resizeImageCover(
   sourceCanvas,
@@ -586,17 +598,57 @@ export function resizeImageCover(
   const scaledWidth = Math.round(srcWidth * scale);
   const scaledHeight = Math.round(srcHeight * scale);
 
+  // Detect environment: createCanvas is provided in Node.js, null in browser
+  const isBrowser = !createCanvas;
+
   let tempCanvas;
-  if (createCanvas) {
-    tempCanvas = createCanvas(scaledWidth, scaledHeight);
-  } else {
+
+  if (
+    isBrowser &&
+    (srcWidth > scaledWidth * 2 || srcHeight > scaledHeight * 2)
+  ) {
+    // Browser with large downscale (>2x): use multi-step halving for better quality
+    // Each 2x reduction is handled well by browsers (used for retina displays),
+    // so we repeatedly halve until within 2x of target, then do final scale.
+    let currentCanvas = sourceCanvas;
+    let currentWidth = srcWidth;
+    let currentHeight = srcHeight;
+
+    while (currentWidth > scaledWidth * 2 || currentHeight > scaledHeight * 2) {
+      const nextWidth = Math.round(currentWidth / 2);
+      const nextHeight = Math.round(currentHeight / 2);
+
+      const stepCanvas = document.createElement("canvas");
+      stepCanvas.width = nextWidth;
+      stepCanvas.height = nextHeight;
+      const stepCtx = getCanvasContext(stepCanvas, "2d", true);
+      stepCtx.drawImage(currentCanvas, 0, 0, nextWidth, nextHeight);
+
+      currentCanvas = stepCanvas;
+      currentWidth = nextWidth;
+      currentHeight = nextHeight;
+    }
+
+    // Final scale step (now within 2x of target)
     tempCanvas = document.createElement("canvas");
     tempCanvas.width = scaledWidth;
     tempCanvas.height = scaledHeight;
+    const tempCtx = getCanvasContext(tempCanvas, "2d", true);
+    tempCtx.drawImage(currentCanvas, 0, 0, scaledWidth, scaledHeight);
+  } else {
+    // Node.js or small reduction (<= 2x): single-step scaling works well
+    if (createCanvas) {
+      tempCanvas = createCanvas(scaledWidth, scaledHeight);
+    } else {
+      tempCanvas = document.createElement("canvas");
+      tempCanvas.width = scaledWidth;
+      tempCanvas.height = scaledHeight;
+    }
+    const tempCtx = getCanvasContext(tempCanvas, "2d", true);
+    tempCtx.drawImage(sourceCanvas, 0, 0, scaledWidth, scaledHeight);
   }
-  const tempCtx = getCanvasContext(tempCanvas, "2d", true);
-  tempCtx.drawImage(sourceCanvas, 0, 0, scaledWidth, scaledHeight);
 
+  // Crop to final output size
   const cropX = Math.round((scaledWidth - outputWidth) / 2);
   const cropY = Math.round((scaledHeight - outputHeight) / 2);
 
@@ -608,7 +660,7 @@ export function resizeImageCover(
     outputCanvas.width = outputWidth;
     outputCanvas.height = outputHeight;
   }
-  const outputCtx = getCanvasContext(outputCanvas, "2d", true);
+  const outputCtx = getCanvasContext(outputCanvas);
   outputCtx.drawImage(
     tempCanvas,
     cropX,
@@ -626,6 +678,7 @@ export function resizeImageCover(
 
 /**
  * Generate thumbnail from canvas
+ * Uses multi-step resize (scale then crop) for better antialiasing in browsers
  */
 export function generateThumbnail(
   sourceCanvas,
@@ -640,39 +693,8 @@ export function generateThumbnail(
   const thumbWidth = isPortrait ? outputHeight : outputWidth;
   const thumbHeight = isPortrait ? outputWidth : outputHeight;
 
-  let thumbCanvas;
-  if (createCanvas) {
-    thumbCanvas = createCanvas(thumbWidth, thumbHeight);
-  } else {
-    thumbCanvas = document.createElement("canvas");
-    thumbCanvas.width = thumbWidth;
-    thumbCanvas.height = thumbHeight;
-  }
-
-  const thumbCtx = getCanvasContext(thumbCanvas, "2d", true);
-
-  const scaleX = thumbWidth / srcWidth;
-  const scaleY = thumbHeight / srcHeight;
-  const scale = Math.max(scaleX, scaleY);
-
-  const scaledWidth = Math.round(srcWidth * scale);
-  const scaledHeight = Math.round(srcHeight * scale);
-  const cropX = Math.round((scaledWidth - thumbWidth) / 2);
-  const cropY = Math.round((scaledHeight - thumbHeight) / 2);
-
-  thumbCtx.drawImage(
-    sourceCanvas,
-    cropX / scale,
-    cropY / scale,
-    thumbWidth / scale,
-    thumbHeight / scale,
-    0,
-    0,
-    thumbWidth,
-    thumbHeight,
-  );
-
-  return thumbCanvas;
+  // Use resizeImageCover for proper multi-step scaling with antialiasing
+  return resizeImageCover(sourceCanvas, thumbWidth, thumbHeight, createCanvas);
 }
 
 /**
