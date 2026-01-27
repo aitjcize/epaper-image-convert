@@ -12,16 +12,16 @@
 // =============================================================================
 
 /**
- * Compressed Dynamic Range (CDR) preset
+ * Balanced preset
  *
  * Best for: General use, prevents overexposure, works well with most images
  * Characteristics: Slightly darker, but preserves detail in highlights
  *
  * @type {ProcessingParams}
  */
-export const CDR_PRESET = {
-  name: "cdr",
-  title: "Compressed Dynamic Range (Default)",
+export const BALANCED_PRESET = {
+  name: "balanced",
+  title: "Balanced (Default)",
   description:
     "Balanced preset that compresses highlights to prevent overexposure. Works well with most images.",
   exposure: 1.0,
@@ -34,16 +34,16 @@ export const CDR_PRESET = {
 };
 
 /**
- * S-Curve preset
+ * Dynamic preset
  *
  * Best for: Photos with good dynamic range, artistic effect
  * Characteristics: Enhanced contrast, more vibrant colors
  *
  * @type {ProcessingParams}
  */
-export const SCURVE_PRESET = {
-  name: "scurve",
-  title: "S-Curve",
+export const DYNAMIC_PRESET = {
+  name: "dynamic",
+  title: "Dynamic",
   description:
     "Advanced tone mapping with brighter output. Some parts of the image may be over-exposed.",
   exposure: 1.0,
@@ -139,8 +139,8 @@ export const GRAYSCALE_PRESET = {
  * @type {Object<string, ProcessingParams>}
  */
 export const PRESETS = {
-  cdr: CDR_PRESET,
-  scurve: SCURVE_PRESET,
+  balanced: BALANCED_PRESET,
+  dynamic: DYNAMIC_PRESET,
   vivid: VIVID_PRESET,
   soft: SOFT_PRESET,
   grayscale: GRAYSCALE_PRESET,
@@ -168,10 +168,10 @@ export const DITHER_ALGORITHMS = [
 /**
  * Get a preset by name
  *
- * @param {string} name - Name of the preset (e.g., "cdr", "scurve")
+ * @param {string} name - Name of the preset (e.g., "balanced", "dynamic")
  * @returns {ProcessingParams|null} Cloned preset object or null if not found
  * @example
- * const preset = getPreset("cdr");
+ * const preset = getPreset("balanecd");
  * // { exposure: 1.0, saturation: 1.0, ... }
  */
 export function getPreset(name) {
@@ -184,7 +184,7 @@ export function getPreset(name) {
  *
  * @returns {string[]} Array of preset names
  * @example
- * getPresetNames(); // ["cdr", "scurve", "vivid", "soft", "grayscale", "default", "enhanced"]
+ * getPresetNames(); // ["balanecd", "dynamic", "vivid", "soft", "grayscale", "default", "enhanced"]
  */
 export function getPresetNames() {
   return Object.keys(PRESETS);
@@ -199,13 +199,13 @@ export function getPresetNames() {
  * @returns {Array<{value: string, title: string, description: string}>} Array of preset options
  * @example
  * const options = getPresetOptions();
- * // [{ value: "cdr", title: "Compressed Dynamic Range", description: "..." }, ...]
+ * // [{ value: "balanced", title: "Balanced", description: "..." }, ...]
  */
 export function getPresetOptions() {
   // Return only primary presets (exclude aliases like "default", "enhanced")
   const primaryPresets = [
-    CDR_PRESET,
-    SCURVE_PRESET,
+    BALANCED_PRESET,
+    DYNAMIC_PRESET,
     VIVID_PRESET,
     SOFT_PRESET,
     GRAYSCALE_PRESET,

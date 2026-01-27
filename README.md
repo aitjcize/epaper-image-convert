@@ -41,16 +41,19 @@ epaper-image-convert ./photos ./converted
 ### Processing Presets
 
 ```bash
-# Use CDR (Compressed Dynamic Range) preset - default, produced the most balanced result
-epaper-image-convert input.jpg -p cdr
+# List all available presets
+epaper-image-convert -l
 
-# Use S-Curve preset - enhanced contrast, vibrant colors
-epaper-image-convert input.jpg -p scurve
+# Use Balanced preset - default, produces the most balanced result
+epaper-image-convert input.jpg -p balanced
+
+# Use Dynamic preset - enhanced contrast, vibrant colors
+epaper-image-convert input.jpg -p dynamic
 
 # Use Vivid preset - boosted colors for illustrations
 epaper-image-convert input.jpg -p vivid
 
-# Available presets: cdr, scurve, vivid, soft, grayscale
+# Available presets: balanced, dynamic, vivid, soft, grayscale
 ```
 
 ### Custom Processing Parameters
@@ -130,7 +133,8 @@ Options:
   -f, --format <format>           Output format: png or bmp (default: png)
   --palette-preset <name>         Palette preset (default: spectra6)
   --palette <json>                Custom palette JSON
-  -p, --processing-preset <name>  Processing preset (default: cdr)
+  -l, --list-presets              List available presets and exit
+  -p, --processing-preset <name>  Processing preset (default: balanced)
   --exposure <value>              Exposure multiplier (0.5-2.0)
   --saturation <value>            Saturation multiplier (0.5-2.0)
   --contrast <value>              Contrast multiplier (0.5-2.0)
@@ -141,7 +145,7 @@ Options:
   --scurve-midpoint <value>       S-curve midpoint (0.3-0.7)
   --color-method <method>         Color matching: rgb or lab
   --dither-algorithm <algorithm>  floyd-steinberg, stucki, burkes, sierra
-  --compress-dynamic-range        Compress to display range (default for cdr)
+  --compress-dynamic-range        Compress to display range (default for balanced)
   --skip-rotation                 Skip portrait-to-landscape rotation
   --skip-dithering                Skip dithering step
   --use-perceived-output          Use perceived palette for output
@@ -160,7 +164,7 @@ import { convertImage } from 'epaper-image-convert';
 const { canvas, buffer } = await convertImage('input.jpg', {
   width: 800,
   height: 480,
-  processingPreset: 'cdr',
+  processingPreset: 'balanced',
   verbose: true,
 });
 
@@ -192,7 +196,7 @@ const { canvas, originalCanvas } = processImage(sourceCanvas, {
   displayHeight: 480,
   palette: SPECTRA6,
   params: {
-    ...getPreset('scurve'),
+    ...getPreset('dynamic'),
     exposure: 1.1,
     saturation: 1.4,
   },
@@ -284,8 +288,8 @@ For a visual comparison showing the impact of using perceived palettes vs theore
 
 | Preset | Description | Best For |
 |--------|-------------|----------|
-| `cdr` | Compressed Dynamic Range | General use, prevents overexposure |
-| `scurve` | S-Curve tone mapping | Photos with good dynamic range |
+| `balanced` | Compressed dynamic range (default) | General use, prevents overexposure |
+| `dynamic` | S-Curve tone mapping | Photos with good dynamic range |
 | `vivid` | High saturation | Colorful images, illustrations |
 | `soft` | Low contrast | Subtle gradients |
 | `grayscale` | LAB color space | B&W photos, documents |

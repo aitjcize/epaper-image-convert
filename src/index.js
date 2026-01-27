@@ -36,8 +36,8 @@ export {
 // Re-export from presets
 export {
   PRESETS,
-  CDR_PRESET,
-  SCURVE_PRESET,
+  BALANCED_PRESET,
+  DYNAMIC_PRESET,
   VIVID_PRESET,
   SOFT_PRESET,
   GRAYSCALE_PRESET,
@@ -60,7 +60,7 @@ export {
  * @param {number} options.height - Display height (default: 480)
  * @param {string} options.palettePreset - Palette preset name (default: "spectra6")
  * @param {Object} options.palette - Custom palette pair { theoretical, perceived }
- * @param {string} options.processingPreset - Processing preset name (default: "cdr")
+ * @param {string} options.processingPreset - Processing preset name (default: "balanced")
  * @param {Object} options.params - Custom processing parameters
  * @param {boolean} options.skipRotation - Skip portrait rotation (default: false)
  * @param {boolean} options.verbose - Enable verbose logging (default: false)
@@ -77,7 +77,7 @@ export async function convertImage(inputPath, options = {}) {
     height = 480,
     palettePreset = "spectra6",
     palette = null,
-    processingPreset = "cdr",
+    processingPreset = "balanced",
     params = null,
     skipRotation = false,
     verbose = false,

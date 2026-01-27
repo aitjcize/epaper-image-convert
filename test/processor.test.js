@@ -167,7 +167,7 @@ describe("processor", () => {
         displayWidth: 800,
         displayHeight: 480,
         palette: SPECTRA6,
-        params: getPreset("cdr"),
+        params: getPreset("balanced"),
         createCanvas,
       });
 
@@ -187,7 +187,7 @@ describe("processor", () => {
         displayWidth: 800,
         displayHeight: 480,
         palette: SPECTRA6,
-        params: getPreset("cdr"),
+        params: getPreset("balanced"),
         createCanvas,
       });
 
@@ -206,7 +206,7 @@ describe("processor", () => {
         displayWidth: 800,
         displayHeight: 480,
         palette: SPECTRA6,
-        params: getPreset("cdr"),
+        params: getPreset("balanced"),
         skipRotation: true,
         createCanvas,
       });
@@ -224,7 +224,7 @@ describe("processor", () => {
 
       const result = processImage(source, {
         palette: SPECTRA6,
-        params: getPreset("cdr"),
+        params: getPreset("balanced"),
         createCanvas,
       });
 
@@ -246,7 +246,7 @@ describe("processor", () => {
         displayWidth: 100,
         displayHeight: 60,
         palette: SPECTRA6,
-        params: getPreset("cdr"),
+        params: getPreset("balanced"),
         skipDithering: true,
         createCanvas,
       });

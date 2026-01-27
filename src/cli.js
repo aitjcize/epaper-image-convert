@@ -258,7 +258,7 @@ program
   .option(
     "-p, --processing-preset <name>",
     `Processing preset: ${getPresetNames().join(", ")}`,
-    "cdr",
+    "balanced",
   )
   .option("--exposure <value>", "Exposure multiplier (0.5-2.0)", parseFloat)
   .option("--saturation <value>", "Saturation multiplier (0.5-2.0)", parseFloat)

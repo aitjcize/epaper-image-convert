@@ -1,7 +1,7 @@
 import {
   PRESETS,
-  CDR_PRESET,
-  SCURVE_PRESET,
+  BALANCED_PRESET,
+  DYNAMIC_PRESET,
   VIVID_PRESET,
   SOFT_PRESET,
   GRAYSCALE_PRESET,
@@ -14,8 +14,8 @@ import {
 describe("presets", () => {
   describe("PRESETS", () => {
     it("should contain all expected presets", () => {
-      expect(PRESETS).toHaveProperty("cdr");
-      expect(PRESETS).toHaveProperty("scurve");
+      expect(PRESETS).toHaveProperty("balanced");
+      expect(PRESETS).toHaveProperty("dynamic");
       expect(PRESETS).toHaveProperty("vivid");
       expect(PRESETS).toHaveProperty("soft");
       expect(PRESETS).toHaveProperty("grayscale");
@@ -29,8 +29,8 @@ describe("presets", () => {
 
   describe("preset objects", () => {
     const presets = [
-      CDR_PRESET,
-      SCURVE_PRESET,
+      BALANCED_PRESET,
+      DYNAMIC_PRESET,
       VIVID_PRESET,
       SOFT_PRESET,
       GRAYSCALE_PRESET,
@@ -47,9 +47,9 @@ describe("presets", () => {
 
   describe("getPreset", () => {
     it("should return cloned preset", () => {
-      const preset = getPreset("cdr");
-      expect(preset).toEqual(CDR_PRESET);
-      expect(preset).not.toBe(CDR_PRESET); // Should be a clone
+      const preset = getPreset("balanced");
+      expect(preset).toEqual(BALANCED_PRESET);
+      expect(preset).not.toBe(BALANCED_PRESET); // Should be a clone
     });
 
     it("should return null for unknown preset", () => {
@@ -61,8 +61,8 @@ describe("presets", () => {
     it("should return array of preset names", () => {
       const names = getPresetNames();
       expect(Array.isArray(names)).toBe(true);
-      expect(names).toContain("cdr");
-      expect(names).toContain("scurve");
+      expect(names).toContain("balanced");
+      expect(names).toContain("dynamic");
       expect(names).toContain("vivid");
     });
   });
