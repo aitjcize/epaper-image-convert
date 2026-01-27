@@ -832,7 +832,7 @@ export function processImage(source, options = {}) {
     originalCanvas.width = canvas.width;
     originalCanvas.height = canvas.height;
   }
-  getCanvasContext(originalCanvas).drawImage(canvas, 0, 0);
+  getCanvasContext(originalCanvas, "2d", true).drawImage(canvas, 0, 0);
 
   // Check if portrait and rotate to landscape
   const isPortrait = canvas.height > canvas.width;
