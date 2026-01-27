@@ -113,6 +113,9 @@ async function processImageFile(inputPath, outputPath, options) {
       process.exit(1);
     }
     processingParams = { ...preset };
+    if (options.verbose) {
+      console.log(`  Using preset: ${options.processingPreset}`);
+    }
   } else {
     processingParams = { ...DEFAULT_PARAMS };
   }
