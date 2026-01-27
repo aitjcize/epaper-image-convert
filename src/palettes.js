@@ -74,6 +74,20 @@ export function getPaletteNames() {
 }
 
 /**
+ * Get palette options for UI/CLI display
+ * @returns {Array<{value: string, title: string, description: string}>} Array of palette options
+ */
+export function getPaletteOptions() {
+  return [
+    {
+      value: "spectra6",
+      title: "Spectra 6 (Default)",
+      description: "6-color ACeP palette for Waveshare and similar displays",
+    },
+  ];
+}
+
+/**
  * Validate a single color palette (theoretical or perceived)
  * @param {Object} palette - Single palette object with color entries
  * @param {string} name - Name for error messages (e.g., "theoretical" or "perceived")

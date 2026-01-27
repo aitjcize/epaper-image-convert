@@ -26,11 +26,18 @@ import {
 import {
   getPalette,
   getPaletteNames,
+  getPaletteOptions,
   parsePalette,
   SPECTRA6,
 } from "./palettes.js";
 
-import { getPreset, getPresetNames, getDefaultParams } from "./presets.js";
+import {
+  getPreset,
+  getPresetNames,
+  getDefaultParams,
+  getPresetOptions,
+  getDitherOptions,
+} from "./presets.js";
 
 const DEFAULT_PARAMS = getDefaultParams();
 
@@ -196,6 +203,33 @@ async function processImageFile(inputPath, outputPath, options) {
   return { canvas, originalCanvas };
 }
 
+/**
+ * Display available presets and exit
+ */
+function listPresets() {
+  console.log("\nProcessing Presets:");
+  console.log("===================");
+  for (const preset of getPresetOptions()) {
+    console.log(`  ${preset.value.padEnd(12)} - ${preset.title}`);
+    console.log(`                 ${preset.description}`);
+  }
+
+  console.log("\nPalette Presets:");
+  console.log("================");
+  for (const palette of getPaletteOptions()) {
+    console.log(`  ${palette.value.padEnd(12)} - ${palette.title}`);
+    console.log(`                 ${palette.description}`);
+  }
+
+  console.log("\nDithering Algorithms:");
+  console.log("=====================");
+  for (const dither of getDitherOptions()) {
+    console.log(`  ${dither.value.padEnd(16)} - ${dither.title}`);
+  }
+
+  console.log("");
+}
+
 // CLI setup
 program
   .name("epaper-image-convert")
@@ -203,8 +237,9 @@ program
     "Convert images for e-paper displays with advanced tone mapping and dithering",
   )
   .version("0.1.0")
-  .argument("<input>", "Input image file or directory")
+  .argument("[input]", "Input image file or directory")
   .argument("[output]", "Output file or directory")
+  .option("-l, --list-presets", "List available presets and exit")
   .option(
     "-d, --dimension <WxH>",
     "Display dimension (e.g., 800x480)",
@@ -266,6 +301,19 @@ program
   )
   .option("-v, --verbose", "Enable verbose output")
   .action(async (input, output, options) => {
+    // Handle --list-presets option
+    if (options.listPresets) {
+      listPresets();
+      process.exit(0);
+    }
+
+    // Require input if not listing presets
+    if (!input) {
+      console.error("Error: Input file or directory is required");
+      console.error("Use --help for usage information");
+      process.exit(1);
+    }
+
     try {
       const inputPath = path.resolve(input);
 

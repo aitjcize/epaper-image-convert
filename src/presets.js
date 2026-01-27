@@ -23,7 +23,7 @@ export const CDR_PRESET = {
   name: "cdr",
   title: "Compressed Dynamic Range (Default)",
   description:
-    "Prevents overexposure and generates good image quality for all images. Images will have a slightly darker look.",
+    "Balanced preset that compresses highlights to prevent overexposure. Works well with most images.",
   exposure: 1.0,
   saturation: 1.0,
   toneMode: "contrast",
