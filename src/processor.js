@@ -793,6 +793,27 @@ export function processImage(source, options = {}) {
 
   if (verbose) {
     console.log(`  Original size: ${canvas.width}x${canvas.height}`);
+    console.log(`  Processing parameters:`);
+    console.log(`    Exposure: ${params.exposure ?? 1.0}`);
+    console.log(`    Saturation: ${params.saturation ?? 1.0}`);
+    console.log(`    Tone mode: ${params.toneMode || "contrast"}`);
+    if (params.toneMode === "scurve") {
+      console.log(`    S-curve strength: ${params.strength ?? 0.5}`);
+      console.log(`    S-curve shadow boost: ${params.shadowBoost ?? 0.3}`);
+      console.log(
+        `    S-curve highlight compress: ${params.highlightCompress ?? 1.5}`,
+      );
+      console.log(`    S-curve midpoint: ${params.midpoint ?? 0.5}`);
+    } else {
+      console.log(`    Contrast: ${params.contrast ?? 1.0}`);
+    }
+    console.log(`    Color method: ${params.colorMethod || "rgb"}`);
+    console.log(
+      `    Dither algorithm: ${params.ditherAlgorithm || "floyd-steinberg"}`,
+    );
+    console.log(
+      `    Compress dynamic range: ${params.compressDynamicRange ?? false}`,
+    );
   }
 
   // Save original canvas for thumbnail generation
@@ -841,26 +862,26 @@ export function processImage(source, options = {}) {
     canvas.height,
   );
 
-  // Apply tone mapping
-  const processingParams = { ...params, measuredPalette: palette.perceived };
+  // Apply tone mapping and preprocessing
   if (verbose) {
     console.log(`  Applying tone mapping (${params.toneMode || "contrast"})`);
-    if (params.compressDynamicRange) {
-      const [blackL] = rgbToLab(
-        palette.perceived.black.r,
-        palette.perceived.black.g,
-        palette.perceived.black.b,
-      );
-      const [whiteL] = rgbToLab(
-        palette.perceived.white.r,
-        palette.perceived.white.g,
-        palette.perceived.white.b,
-      );
-      console.log(
-        `  Compressing dynamic range to L* ${Math.round(blackL)}-${Math.round(whiteL)}`,
-      );
-    }
   }
+  if (verbose && params.compressDynamicRange) {
+    const [blackL] = rgbToLab(
+      palette.perceived.black.r,
+      palette.perceived.black.g,
+      palette.perceived.black.b,
+    );
+    const [whiteL] = rgbToLab(
+      palette.perceived.white.r,
+      palette.perceived.white.g,
+      palette.perceived.white.b,
+    );
+    console.log(
+      `  Compressing dynamic range to L* ${Math.round(blackL)}-${Math.round(whiteL)}`,
+    );
+  }
+  const processingParams = { ...params, measuredPalette: palette.perceived };
   preprocessImage(imageData, processingParams, palette.perceived);
 
   // Apply dithering
