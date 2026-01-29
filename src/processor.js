@@ -856,24 +856,29 @@ export function processImage(source, options = {}) {
   }
   getCanvasContext(originalCanvas, "2d", true).drawImage(canvas, 0, 0);
 
-  // Check if portrait and rotate to landscape
-  const isPortrait = canvas.height > canvas.width;
-  if (isPortrait && !skipRotation) {
+  // Check orientation match between source and target
+  // If they differ (one portrait, one landscape), rotate to match target
+  const isSourcePortrait = canvas.height > canvas.width;
+  const isTargetPortrait = displayHeight > displayWidth;
+
+  if (isSourcePortrait !== isTargetPortrait && !skipRotation) {
     if (verbose) {
-      console.log(`  Portrait detected, rotating 90° clockwise`);
+      console.log(
+        `  Orientation mismatch (Source: ${isSourcePortrait ? "Portrait" : "Landscape"}, Target: ${isTargetPortrait ? "Portrait" : "Landscape"}). Rotating 90° clockwise`,
+      );
     }
     canvas = rotate90Clockwise(canvas, createCanvas);
   }
 
   // Resize to display dimensions
-  let finalWidth, finalHeight;
-  const displayIsLandscape = displayWidth > displayHeight;
-  if (isPortrait && skipRotation && displayIsLandscape) {
+  let finalWidth = displayWidth;
+  let finalHeight = displayHeight;
+
+  // If we skipped rotation despite an orientation mismatch, swap target dimensions
+  // to match the image orientation (treating display as rotated)
+  if (isSourcePortrait !== isTargetPortrait && skipRotation) {
     finalWidth = displayHeight;
     finalHeight = displayWidth;
-  } else {
-    finalWidth = displayWidth;
-    finalHeight = displayHeight;
   }
 
   if (canvas.width !== finalWidth || canvas.height !== finalHeight) {
