@@ -40,12 +40,12 @@ export const SPECTRA6 = {
     green: { r: 0, g: 255, b: 0 },
   },
   perceived: {
-    black: { r: 10, g: 10, b: 10 },
-    white: { r: 200, g: 215, b: 225 },
-    yellow: { r: 225, g: 222, b: 8 },
-    red: { r: 149, g: 36, b: 23 },
-    blue: { r: 25, g: 76, b: 181 },
-    green: { r: 51, g: 117, b: 93 },
+    black: { r: 2, g: 2, b: 2 },
+    white: { r: 190, g: 190, b: 190 },
+    yellow: { r: 205, g: 202, b: 0 },
+    red: { r: 135, g: 19, b: 0 },
+    blue: { r: 5, g: 64, b: 158 },
+    green: { r: 39, g: 102, b: 60 },
   },
 };
 
