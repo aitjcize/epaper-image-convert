@@ -41,7 +41,7 @@ export const SPECTRA6 = {
   },
   perceived: {
     black: { r: 2, g: 2, b: 2 },
-    white: { r: 190, g: 190, b: 190 },
+    white: { r: 190, g: 200, b: 200 },
     yellow: { r: 205, g: 202, b: 0 },
     red: { r: 135, g: 19, b: 0 },
     blue: { r: 5, g: 64, b: 158 },
