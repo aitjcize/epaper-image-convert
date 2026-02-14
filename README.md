@@ -294,6 +294,12 @@ For a visual comparison showing the impact of using perceived palettes vs theore
 | `soft` | Low contrast | Subtle gradients |
 | `grayscale` | LAB color space | B&W photos, documents |
 
+## Support
+
+If you find this project useful, consider buying me a coffee! ☕
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/aitjcize)
+
 ## License
 
 MIT
