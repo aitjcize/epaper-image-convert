@@ -1,6 +1,6 @@
 {
   "name": "@aitjcize/epaper-image-convert",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Convert images for e-paper displays with advanced tone mapping, dithering, and color palette optimization",
   "type": "module",
   "main": "./src/index.js",
@@ -52,7 +52,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "canvas": "^3.2.1",
+    "canvas": "3.2.1",
     "commander": "^14.0.2",
     "exifreader": "^4.14.1"
   },
