@@ -13,6 +13,7 @@ export {
   generateThumbnail,
   createPNG,
   createBMP,
+  createEPDGZ,
   getCanvasContext,
   paletteToArray,
   rgbToLab,
@@ -84,7 +85,7 @@ export async function convertImage(inputPath, options = {}) {
   } = options;
 
   // Import what we need
-  const { processImage, applyExifOrientation, createPNG } =
+  const { processImage, applyExifOrientation, createEPDGZ } =
     await import("./processor.js");
   const { getPalette } = await import("./palettes.js");
   const { getPreset, mergeParams } = await import("./presets.js");
@@ -145,8 +146,8 @@ export async function convertImage(inputPath, options = {}) {
     createCanvas,
   });
 
-  // Create PNG buffer
-  const buffer = await createPNG(canvas);
+  // Create EPDGZ buffer (default format)
+  const buffer = await createEPDGZ(canvas);
 
   return { canvas, originalCanvas, buffer };
 }

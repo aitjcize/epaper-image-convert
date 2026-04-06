@@ -17,6 +17,7 @@ import {
   generateThumbnail,
   createPNG,
   createBMP,
+  createEPDGZ,
   DEFAULT_DISPLAY_WIDTH,
   DEFAULT_DISPLAY_HEIGHT,
   DEFAULT_THUMBNAIL_WIDTH,
@@ -169,12 +170,14 @@ async function processImageFile(inputPath, outputPath, options) {
   }
 
   // Save output in requested format
-  const format = options.format || "png";
+  const format = options.format || "epdgz";
   let outputBuffer;
   if (format === "bmp") {
     outputBuffer = createBMP(canvas);
-  } else {
+  } else if (format === "png") {
     outputBuffer = await createPNG(canvas);
+  } else {
+    outputBuffer = await createEPDGZ(canvas);
   }
   fs.writeFileSync(outputPath, outputBuffer);
   console.log(`  Output: ${outputPath}`);
@@ -248,7 +251,7 @@ program
     "Display dimension (e.g., 800x480)",
     `${DEFAULT_DISPLAY_WIDTH}x${DEFAULT_DISPLAY_HEIGHT}`,
   )
-  .option("-f, --format <format>", "Output format: png or bmp", "png")
+  .option("-f, --format <format>", "Output format: epdgz, png, or bmp", "epdgz")
   .option(
     "--palette-preset <name>",
     `Palette preset: ${getPaletteNames().join(", ")}`,
@@ -351,7 +354,12 @@ program
         for (const file of files) {
           const inputFile = path.join(inputPath, file);
           const baseName = path.basename(file, path.extname(file));
-          const ext = options.format === "bmp" ? "bmp" : "png";
+          const ext =
+            options.format === "bmp"
+              ? "bmp"
+              : options.format === "png"
+                ? "png"
+                : "epdgz";
           const outputFile = path.join(outputDir, `${baseName}.${ext}`);
 
           const fileOptions = { ...options };
@@ -377,13 +385,23 @@ program
             fs.statSync(resolvedOutput).isDirectory()
           ) {
             const baseName = path.basename(inputPath, path.extname(inputPath));
-            const ext = options.format === "bmp" ? "bmp" : "png";
+            const ext =
+              options.format === "bmp"
+                ? "bmp"
+                : options.format === "png"
+                  ? "png"
+                  : "epdgz";
             outputPath = path.join(resolvedOutput, `${baseName}.${ext}`);
           } else {
             outputPath = resolvedOutput;
           }
         } else {
-          const ext = options.format === "bmp" ? "bmp" : "png";
+          const ext =
+            options.format === "bmp"
+              ? "bmp"
+              : options.format === "png"
+                ? "png"
+                : "epdgz";
           outputPath = inputPath.replace(/\.[^.]+$/, `.${ext}`);
         }
 

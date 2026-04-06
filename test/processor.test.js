@@ -1,4 +1,5 @@
 import { createCanvas } from "canvas";
+import { gunzipSync } from "zlib";
 import {
   paletteToArray,
   rgbToLab,
@@ -10,6 +11,7 @@ import {
   processImage,
   createPNG,
   createBMP,
+  createEPDGZ,
   DEFAULT_DISPLAY_WIDTH,
   DEFAULT_DISPLAY_HEIGHT,
 } from "../src/processor.js";
@@ -343,6 +345,84 @@ describe("processor", () => {
       expect(buffer[54]).toBe(64); // B
       expect(buffer[55]).toBe(128); // G
       expect(buffer[56]).toBe(255); // R
+    });
+  });
+
+  describe("createEPDGZ", () => {
+    it("should create a gzip-compressed buffer from canvas", async () => {
+      const canvas = createCanvas(100, 100);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "red";
+      ctx.fillRect(0, 0, 100, 100);
+
+      const buffer = await createEPDGZ(canvas);
+
+      expect(Buffer.isBuffer(buffer)).toBe(true);
+      expect(buffer.length).toBeGreaterThan(0);
+      // Gzip magic number
+      expect(buffer[0]).toBe(0x1f);
+      expect(buffer[1]).toBe(0x8b);
+    });
+
+    it("should decompress to correct size (2 pixels per byte)", async () => {
+      const width = 100;
+      const height = 50;
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, width, height);
+
+      const compressed = await createEPDGZ(canvas);
+      const raw = gunzipSync(compressed);
+
+      const expectedSize = Math.ceil((width * height) / 2);
+      expect(raw.length).toBe(expectedSize);
+    });
+
+    it("should encode palette colors to correct indices", async () => {
+      // Create a 6x1 canvas with one pixel of each palette color
+      const canvas = createCanvas(6, 1);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgb(0, 0, 0)"; // Black = 0
+      ctx.fillRect(0, 0, 1, 1);
+      ctx.fillStyle = "rgb(255, 255, 255)"; // White = 1
+      ctx.fillRect(1, 0, 1, 1);
+      ctx.fillStyle = "rgb(255, 255, 0)"; // Yellow = 2
+      ctx.fillRect(2, 0, 1, 1);
+      ctx.fillStyle = "rgb(255, 0, 0)"; // Red = 3
+      ctx.fillRect(3, 0, 1, 1);
+      ctx.fillStyle = "rgb(0, 0, 255)"; // Blue = 5
+      ctx.fillRect(4, 0, 1, 1);
+      ctx.fillStyle = "rgb(0, 255, 0)"; // Green = 6
+      ctx.fillRect(5, 0, 1, 1);
+
+      const compressed = await createEPDGZ(canvas);
+      const raw = gunzipSync(compressed);
+
+      // 6 pixels = 3 bytes (2 pixels per byte, high nibble first)
+      expect(raw.length).toBe(3);
+      expect(raw[0]).toBe((0 << 4) | 1); // Black, White
+      expect(raw[1]).toBe((2 << 4) | 3); // Yellow, Red
+      expect(raw[2]).toBe((5 << 4) | 6); // Blue, Green
+    });
+
+    it("should pad odd-width rows with white", async () => {
+      // 3-pixel wide canvas: 2 bytes per row, second byte has padding
+      const canvas = createCanvas(3, 1);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgb(0, 0, 0)"; // Black = 0
+      ctx.fillRect(0, 0, 1, 1);
+      ctx.fillStyle = "rgb(255, 0, 0)"; // Red = 3
+      ctx.fillRect(1, 0, 1, 1);
+      ctx.fillStyle = "rgb(0, 0, 255)"; // Blue = 5
+      ctx.fillRect(2, 0, 1, 1);
+
+      const compressed = await createEPDGZ(canvas);
+      const raw = gunzipSync(compressed);
+
+      expect(raw.length).toBe(2);
+      expect(raw[0]).toBe((0 << 4) | 3); // Black, Red
+      expect(raw[1]).toBe((5 << 4) | 1); // Blue, White (padded)
     });
   });
 });

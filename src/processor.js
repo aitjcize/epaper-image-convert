@@ -2,6 +2,7 @@
  * Core image processing functions for e-paper displays
  */
 
+import { gzipSync } from "zlib";
 import { SPECTRA6 } from "./palettes.js";
 import { getDefaultParams } from "./presets.js";
 
@@ -769,6 +770,62 @@ export function createBMP(canvas) {
   }
 
   return buffer;
+}
+
+/**
+ * Map a theoretical palette RGB value to its 4-bit palette index.
+ * Color indices: 0=Black, 1=White, 2=Yellow, 3=Red, 5=Blue, 6=Green
+ */
+function rgbToPaletteIndex(r, g, b) {
+  if (r === 0 && g === 0 && b === 0) return 0; // Black
+  if (r === 255 && g === 255 && b === 255) return 1; // White
+  if (r === 255 && g === 255 && b === 0) return 2; // Yellow
+  if (r === 255 && g === 0 && b === 0) return 3; // Red
+  if (r === 0 && g === 0 && b === 255) return 5; // Blue
+  if (r === 0 && g === 255 && b === 0) return 6; // Green
+  return 1; // Default to white for unknown colors
+}
+
+/**
+ * Convert canvas to EPDGZ (4-bit-per-pixel gzip-compressed raw e-paper data)
+ *
+ * Pixel packing: 2 pixels per byte, high nibble = first pixel, low nibble = second pixel.
+ * Works in both Node.js (zlib) and browser (CompressionStream) environments.
+ */
+export async function createEPDGZ(canvas) {
+  const ctx = getCanvasContext(canvas);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { width, height, data } = imageData;
+
+  const rawBuffer = new Uint8Array(Math.ceil((width * height) / 2));
+  let byteIdx = 0;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x += 2) {
+      const idx1 = (y * width + x) * 4;
+      const p1 = rgbToPaletteIndex(data[idx1], data[idx1 + 1], data[idx1 + 2]);
+
+      let p2 = 1; // Default white for padding
+      if (x + 1 < width) {
+        const idx2 = (y * width + x + 1) * 4;
+        p2 = rgbToPaletteIndex(data[idx2], data[idx2 + 1], data[idx2 + 2]);
+      }
+
+      rawBuffer[byteIdx++] = (p1 << 4) | (p2 & 0x0f);
+    }
+  }
+
+  // Gzip compress: Node.js uses zlib, browser uses CompressionStream
+  if (typeof Buffer !== "undefined" && typeof window === "undefined") {
+    return gzipSync(rawBuffer);
+  } else {
+    const cs = new CompressionStream("gzip");
+    const writer = cs.writable.getWriter();
+    writer.write(rawBuffer);
+    writer.close();
+    const compressed = await new Response(cs.readable).arrayBuffer();
+    return new Uint8Array(compressed);
+  }
 }
 
 // ===== Main Processing Function =====
