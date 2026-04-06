@@ -2,7 +2,6 @@
  * Core image processing functions for e-paper displays
  */
 
-import { gzipSync } from "zlib";
 import { SPECTRA6 } from "./palettes.js";
 import { getDefaultParams } from "./presets.js";
 
@@ -817,6 +816,7 @@ export async function createEPDGZ(canvas) {
 
   // Gzip compress: Node.js uses zlib, browser uses CompressionStream
   if (typeof Buffer !== "undefined" && typeof window === "undefined") {
+    const { gzipSync } = await import("zlib");
     return gzipSync(rawBuffer);
   } else {
     const cs = new CompressionStream("gzip");
