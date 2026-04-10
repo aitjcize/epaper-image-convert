@@ -486,6 +486,128 @@ describe("processor", () => {
     });
   });
 
+  describe("processImage orientation", () => {
+    it("should output native dimensions when orientation is null", () => {
+      const source = createCanvas(1000, 600);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 1000, 600);
+
+      const result = processImage(source, {
+        displayWidth: 800,
+        displayHeight: 480,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        orientation: null,
+        createCanvas,
+      });
+
+      expect(result.canvas.width).toBe(800);
+      expect(result.canvas.height).toBe(480);
+    });
+
+    it("should output native dims for portrait on landscape panel", () => {
+      const source = createCanvas(600, 1000);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 600, 1000);
+
+      const result = processImage(source, {
+        displayWidth: 800,
+        displayHeight: 480,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        orientation: "portrait",
+        createCanvas,
+      });
+
+      // Output should be native 800x480 (processed at 480x800, then rotated)
+      expect(result.canvas.width).toBe(800);
+      expect(result.canvas.height).toBe(480);
+    });
+
+    it("should output native dims for landscape on portrait panel", () => {
+      const source = createCanvas(1000, 600);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 1000, 600);
+
+      const result = processImage(source, {
+        displayWidth: 1200,
+        displayHeight: 1600,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        orientation: "landscape",
+        createCanvas,
+      });
+
+      // Output should be native 1200x1600 (processed at 1600x1200, then rotated)
+      expect(result.canvas.width).toBe(1200);
+      expect(result.canvas.height).toBe(1600);
+    });
+
+    it("should not rotate when orientation matches native", () => {
+      // Red left half, blue right half — if rotated, top/bottom would change
+      const source = createCanvas(800, 480);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "red";
+      ctx.fillRect(0, 0, 400, 480);
+      ctx.fillStyle = "blue";
+      ctx.fillRect(400, 0, 400, 480);
+
+      const result = processImage(source, {
+        displayWidth: 800,
+        displayHeight: 480,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        orientation: "landscape",
+        skipDithering: true,
+        createCanvas,
+      });
+
+      expect(result.canvas.width).toBe(800);
+      expect(result.canvas.height).toBe(480);
+
+      // Left should still be reddish, right should still be bluish (not swapped by rotation)
+      const imgData = result.canvas.getContext("2d").getImageData(0, 0, 800, 480);
+      const leftPixel = [imgData.data[0], imgData.data[1], imgData.data[2]];
+      const rightPixel = [imgData.data[(799) * 4], imgData.data[(799) * 4 + 1], imgData.data[(799) * 4 + 2]];
+      expect(leftPixel[0]).toBeGreaterThan(leftPixel[2]); // Red > Blue on left
+      expect(rightPixel[2]).toBeGreaterThan(rightPixel[0]); // Blue > Red on right
+    });
+
+    it("should not rotate portrait panel with portrait orientation", () => {
+      // Red top half, blue bottom half
+      const source = createCanvas(1200, 1600);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "red";
+      ctx.fillRect(0, 0, 1200, 800);
+      ctx.fillStyle = "blue";
+      ctx.fillRect(0, 800, 1200, 800);
+
+      const result = processImage(source, {
+        displayWidth: 1200,
+        displayHeight: 1600,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        orientation: "portrait",
+        skipDithering: true,
+        createCanvas,
+      });
+
+      expect(result.canvas.width).toBe(1200);
+      expect(result.canvas.height).toBe(1600);
+
+      // Top should still be reddish, bottom should still be bluish
+      const imgData = result.canvas.getContext("2d").getImageData(0, 0, 1200, 1600);
+      const topPixel = [imgData.data[0], imgData.data[1], imgData.data[2]];
+      const bottomIdx = (1599 * 1200) * 4;
+      const bottomPixel = [imgData.data[bottomIdx], imgData.data[bottomIdx + 1], imgData.data[bottomIdx + 2]];
+      expect(topPixel[0]).toBeGreaterThan(topPixel[2]); // Red > Blue on top
+      expect(bottomPixel[2]).toBeGreaterThan(bottomPixel[0]); // Blue > Red on bottom
+    });
+  });
+
   describe("createPNG", () => {
     it("should create a PNG buffer from canvas", async () => {
       const canvas = createCanvas(100, 100);
