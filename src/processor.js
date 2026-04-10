@@ -8,8 +8,7 @@ import { getDefaultParams } from "./presets.js";
 // Default dimensions
 export const DEFAULT_DISPLAY_WIDTH = 800;
 export const DEFAULT_DISPLAY_HEIGHT = 480;
-export const DEFAULT_THUMBNAIL_WIDTH = 400;
-export const DEFAULT_THUMBNAIL_HEIGHT = 240;
+export const DEFAULT_THUMBNAIL_MAX_DIMENSION = 400;
 
 /**
  * Helper function to get canvas context with configurable image smoothing
@@ -700,7 +699,7 @@ export function resizeImageFit(
   sourceCanvas,
   outputWidth,
   outputHeight,
-  backgroundColor = "#000000",
+  backgroundColor = "white",
   createCanvas = null,
 ) {
   const srcWidth = sourceCanvas.width;
@@ -750,7 +749,7 @@ export function resizeImageCustom(
   zoom = 1.0,
   panX = 0,
   panY = 0,
-  backgroundColor = "#000000",
+  backgroundColor = "white",
   createCanvas = null,
 ) {
   let outputCanvas;
@@ -774,24 +773,38 @@ export function resizeImageCustom(
 }
 
 /**
- * Generate thumbnail from canvas
- * Uses multi-step resize (scale then crop) for better antialiasing in browsers
+ * Generate thumbnail from canvas, preserving aspect ratio.
+ * The longest side will not exceed maxDimension.
+ *
+ * @param {Canvas} sourceCanvas - Source canvas to generate thumbnail from
+ * @param {number} maxDimension - Maximum size of the longest side (default: 400)
+ * @param {Function} createCanvas - Canvas creation function for Node.js
  */
 export function generateThumbnail(
   sourceCanvas,
-  outputWidth = DEFAULT_THUMBNAIL_WIDTH,
-  outputHeight = DEFAULT_THUMBNAIL_HEIGHT,
+  maxDimension = DEFAULT_THUMBNAIL_MAX_DIMENSION,
   createCanvas = null,
 ) {
   const srcWidth = sourceCanvas.width;
   const srcHeight = sourceCanvas.height;
 
-  const isPortrait = srcHeight > srcWidth;
-  const thumbWidth = isPortrait ? outputHeight : outputWidth;
-  const thumbHeight = isPortrait ? outputWidth : outputHeight;
+  const scale = Math.min(maxDimension / srcWidth, maxDimension / srcHeight);
+  const thumbWidth = Math.round(srcWidth * scale);
+  const thumbHeight = Math.round(srcHeight * scale);
 
-  // Use resizeImageCover for proper multi-step scaling with antialiasing
-  return resizeImageCover(sourceCanvas, thumbWidth, thumbHeight, createCanvas);
+  let thumbCanvas;
+  if (createCanvas) {
+    thumbCanvas = createCanvas(thumbWidth, thumbHeight);
+  } else {
+    thumbCanvas = document.createElement("canvas");
+    thumbCanvas.width = thumbWidth;
+    thumbCanvas.height = thumbHeight;
+  }
+
+  const ctx = getCanvasContext(thumbCanvas, "2d", true);
+  ctx.drawImage(sourceCanvas, 0, 0, thumbWidth, thumbHeight);
+
+  return thumbCanvas;
 }
 
 /**

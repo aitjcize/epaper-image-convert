@@ -138,19 +138,19 @@ describe("processor", () => {
   });
 
   describe("generateThumbnail", () => {
-    it("should create landscape thumbnail from landscape source", () => {
+    it("should create thumbnail preserving aspect ratio from landscape source", () => {
       const source = createCanvas(1000, 600);
-      const thumb = generateThumbnail(source, 400, 240, createCanvas);
+      const thumb = generateThumbnail(source, 400, createCanvas);
 
       expect(thumb.width).toBe(400);
       expect(thumb.height).toBe(240);
     });
 
-    it("should create portrait thumbnail from portrait source", () => {
+    it("should create thumbnail preserving aspect ratio from portrait source", () => {
       const source = createCanvas(600, 1000);
-      const thumb = generateThumbnail(source, 400, 240, createCanvas);
+      const thumb = generateThumbnail(source, 400, createCanvas);
 
-      expect(thumb.width).toBe(240); // Swapped for portrait
+      expect(thumb.width).toBe(240);
       expect(thumb.height).toBe(400);
     });
   });

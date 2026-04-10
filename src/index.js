@@ -22,8 +22,7 @@ export {
   rotateImage,
   DEFAULT_DISPLAY_WIDTH,
   DEFAULT_DISPLAY_HEIGHT,
-  DEFAULT_THUMBNAIL_WIDTH,
-  DEFAULT_THUMBNAIL_HEIGHT,
+  DEFAULT_THUMBNAIL_MAX_DIMENSION,
 } from "./processor.js";
 
 // Re-export from palettes

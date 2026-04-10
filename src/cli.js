@@ -21,8 +21,6 @@ import {
   createEPDGZ,
   DEFAULT_DISPLAY_WIDTH,
   DEFAULT_DISPLAY_HEIGHT,
-  DEFAULT_THUMBNAIL_WIDTH,
-  DEFAULT_THUMBNAIL_HEIGHT,
 } from "./processor.js";
 
 import {
@@ -195,13 +193,12 @@ async function processImageFile(inputPath, outputPath, options) {
   fs.writeFileSync(outputPath, outputBuffer);
   console.log(`  Output: ${outputPath}`);
 
-  // Generate thumbnail if requested
+  // Generate thumbnail from original source (clean, unprocessed)
   if (options.thumbnail) {
-    const thumbDim = parseDimension(options.thumbnailDimension);
+    const maxDim = parseInt(options.thumbnailMaxDimension, 10) || 400;
     const thumbnailCanvas = generateThumbnail(
       originalCanvas,
-      thumbDim.width,
-      thumbDim.height,
+      maxDim,
       createCanvas,
     );
 
@@ -327,9 +324,9 @@ program
   )
   .option("-t, --thumbnail <path>", "Generate thumbnail and save to path")
   .option(
-    "--thumbnail-dimension <WxH>",
-    "Thumbnail dimension",
-    `${DEFAULT_THUMBNAIL_WIDTH}x${DEFAULT_THUMBNAIL_HEIGHT}`,
+    "--thumbnail-max-dimension <pixels>",
+    "Maximum thumbnail dimension (longest side)",
+    "400",
   )
   .option("-v, --verbose", "Enable verbose output")
   .action(async (input, output, options) => {
