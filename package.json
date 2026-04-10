@@ -10,7 +10,7 @@
     "./presets": "./src/presets.js"
   },
   "bin": {
-    "epaper-image-convert": "./src/cli.js"
+    "epaper-image-convert": "src/cli.js"
   },
   "files": [
     "src/**/*.js",
