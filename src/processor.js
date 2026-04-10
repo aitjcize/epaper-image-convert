@@ -692,6 +692,88 @@ export function resizeImageCover(
 }
 
 /**
+ * Resize canvas to fit within target dimensions (letterbox mode).
+ * The image is scaled to fit entirely within the target, centered,
+ * with the remaining area filled with backgroundColor.
+ */
+export function resizeImageFit(
+  sourceCanvas,
+  outputWidth,
+  outputHeight,
+  backgroundColor = "#000000",
+  createCanvas = null,
+) {
+  const srcWidth = sourceCanvas.width;
+  const srcHeight = sourceCanvas.height;
+
+  const scale = Math.min(outputWidth / srcWidth, outputHeight / srcHeight);
+  const scaledWidth = Math.round(srcWidth * scale);
+  const scaledHeight = Math.round(srcHeight * scale);
+  const offsetX = Math.round((outputWidth - scaledWidth) / 2);
+  const offsetY = Math.round((outputHeight - scaledHeight) / 2);
+
+  let outputCanvas;
+  if (createCanvas) {
+    outputCanvas = createCanvas(outputWidth, outputHeight);
+  } else {
+    outputCanvas = document.createElement("canvas");
+    outputCanvas.width = outputWidth;
+    outputCanvas.height = outputHeight;
+  }
+
+  const ctx = getCanvasContext(outputCanvas, "2d", true);
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, outputWidth, outputHeight);
+  ctx.drawImage(sourceCanvas, offsetX, offsetY, scaledWidth, scaledHeight);
+
+  return outputCanvas;
+}
+
+/**
+ * Resize canvas with custom zoom and pan.
+ * The source is drawn at the given zoom level and pan offset onto the output canvas,
+ * with remaining area filled with backgroundColor.
+ *
+ * @param {Canvas} sourceCanvas - Source canvas
+ * @param {number} outputWidth - Output width
+ * @param {number} outputHeight - Output height
+ * @param {number} zoom - Zoom factor (1.0 = original size)
+ * @param {number} panX - Horizontal offset in output pixels
+ * @param {number} panY - Vertical offset in output pixels
+ * @param {string} backgroundColor - Background fill color (default: "#000000")
+ * @param {Function} createCanvas - Canvas creation function for Node.js
+ */
+export function resizeImageCustom(
+  sourceCanvas,
+  outputWidth,
+  outputHeight,
+  zoom = 1.0,
+  panX = 0,
+  panY = 0,
+  backgroundColor = "#000000",
+  createCanvas = null,
+) {
+  let outputCanvas;
+  if (createCanvas) {
+    outputCanvas = createCanvas(outputWidth, outputHeight);
+  } else {
+    outputCanvas = document.createElement("canvas");
+    outputCanvas.width = outputWidth;
+    outputCanvas.height = outputHeight;
+  }
+
+  const ctx = getCanvasContext(outputCanvas, "2d", true);
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, outputWidth, outputHeight);
+
+  const w = Math.round(sourceCanvas.width * zoom);
+  const h = Math.round(sourceCanvas.height * zoom);
+  ctx.drawImage(sourceCanvas, Math.round(panX), Math.round(panY), w, h);
+
+  return outputCanvas;
+}
+
+/**
  * Generate thumbnail from canvas
  * Uses multi-step resize (scale then crop) for better antialiasing in browsers
  */
@@ -854,6 +936,11 @@ export async function createEPDGZ(canvas) {
  * @param {number} options.displayHeight - Display height in pixels (required)
  * @param {Object} options.palette - Palette pair { theoretical, perceived } (default: SPECTRA6)
  * @param {Object} options.params - Processing parameters (exposure, saturation, etc.)
+ * @param {string} options.scaleMode - Scale mode: "cover" (crop), "fit" (letterbox), or "custom" (zoom/pan)
+ * @param {string} options.backgroundColor - Palette color name for fit/custom background (default: "black")
+ * @param {number} options.zoom - Zoom factor for custom mode (default: 1.0)
+ * @param {number} options.panX - Horizontal pan offset for custom mode (default: 0)
+ * @param {number} options.panY - Vertical pan offset for custom mode (default: 0)
  * @param {boolean} options.skipDithering - Skip dithering step (default: false)
  * @param {boolean} options.usePerceivedOutput - Use perceived palette for output (default: false)
  * @param {boolean} options.verbose - Enable verbose logging (default: false)
@@ -866,6 +953,11 @@ export function processImage(source, options = {}) {
     displayHeight = DEFAULT_DISPLAY_HEIGHT,
     palette = SPECTRA6,
     params = getDefaultParams(),
+    scaleMode = "cover",
+    backgroundColor = "black",
+    zoom = 1.0,
+    panX = 0,
+    panY = 0,
     skipDithering = false,
     usePerceivedOutput = false,
     verbose = false,
@@ -926,14 +1018,42 @@ export function processImage(source, options = {}) {
   }
   getCanvasContext(originalCanvas, "2d", true).drawImage(canvas, 0, 0);
 
-  // Resize to display dimensions (caller is responsible for passing
-  // dimensions in the correct orientation)
+  // Resize to display dimensions
   const finalWidth = displayWidth;
   const finalHeight = displayHeight;
+  let bgMask = null;
 
-  if (canvas.width !== finalWidth || canvas.height !== finalHeight) {
+  if (scaleMode === "fit" || scaleMode === "custom") {
+    const bgColor = palette.theoretical[backgroundColor] || palette.theoretical.black;
+    const bgHex = `rgb(${bgColor.r},${bgColor.g},${bgColor.b})`;
+
+    // Resize function based on scale mode
+    const resizeFn = (bg) =>
+      scaleMode === "fit"
+        ? resizeImageFit(canvas, finalWidth, finalHeight, bg, createCanvas)
+        : resizeImageCustom(canvas, finalWidth, finalHeight, zoom, panX, panY, bg, createCanvas);
+
     if (verbose) {
-      console.log(`  Resizing to ${finalWidth}x${finalHeight}`);
+      console.log(
+        scaleMode === "fit"
+          ? `  Resizing to fit ${finalWidth}x${finalHeight} (letterbox)`
+          : `  Custom scale: zoom=${zoom}, pan=(${panX},${panY}) → ${finalWidth}x${finalHeight}`,
+      );
+    }
+
+    // First pass: transparent background to build mask
+    const tempCanvas = resizeFn("rgba(0,0,0,0)");
+    const tempData = getCanvasContext(tempCanvas).getImageData(0, 0, finalWidth, finalHeight);
+    bgMask = new Uint8Array(finalWidth * finalHeight);
+    for (let i = 0; i < bgMask.length; i++) {
+      bgMask[i] = tempData.data[i * 4 + 3] === 0 ? 1 : 0;
+    }
+
+    // Second pass: actual background color
+    canvas = resizeFn(bgHex);
+  } else if (canvas.width !== finalWidth || canvas.height !== finalHeight) {
+    if (verbose) {
+      console.log(`  Resizing to cover ${finalWidth}x${finalHeight} (crop)`);
     }
     canvas = resizeImageCover(canvas, finalWidth, finalHeight, createCanvas);
   }
@@ -989,6 +1109,22 @@ export function processImage(source, options = {}) {
       ditherPaletteArray,
       params.ditherAlgorithm || "floyd-steinberg",
     );
+  }
+
+  // Replace background pixels with clean palette color after dithering.
+  // Dithering can introduce artifacts in uniform background areas.
+  if (bgMask) {
+    const outputPal = usePerceivedOutput
+      ? palette.perceived
+      : palette.theoretical;
+    const cleanBg = outputPal[backgroundColor] || outputPal.black;
+    for (let i = 0; i < bgMask.length; i++) {
+      if (bgMask[i]) {
+        imageData.data[i * 4] = cleanBg.r;
+        imageData.data[i * 4 + 1] = cleanBg.g;
+        imageData.data[i * 4 + 2] = cleanBg.b;
+      }
+    }
   }
 
   getCanvasContext(canvas).putImageData(imageData, 0, 0);

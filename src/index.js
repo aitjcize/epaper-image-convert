@@ -10,6 +10,8 @@ export {
   processImage,
   applyExifOrientation,
   resizeImageCover,
+  resizeImageFit,
+  resizeImageCustom,
   generateThumbnail,
   createPNG,
   createBMP,
