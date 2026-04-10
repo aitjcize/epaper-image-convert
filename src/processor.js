@@ -937,7 +937,7 @@ export async function createEPDGZ(canvas) {
  * @param {Object} options.palette - Palette pair { theoretical, perceived } (default: SPECTRA6)
  * @param {Object} options.params - Processing parameters (exposure, saturation, etc.)
  * @param {string} options.scaleMode - Scale mode: "cover" (crop), "fit" (letterbox), or "custom" (zoom/pan)
- * @param {string} options.backgroundColor - Palette color name for fit/custom background (default: "black")
+ * @param {string} options.backgroundColor - Palette color name for fit/custom background (default: "white")
  * @param {number} options.zoom - Zoom factor for custom mode (default: 1.0)
  * @param {number} options.panX - Horizontal pan offset for custom mode (default: 0)
  * @param {number} options.panY - Vertical pan offset for custom mode (default: 0)
@@ -954,7 +954,7 @@ export function processImage(source, options = {}) {
     palette = SPECTRA6,
     params = getDefaultParams(),
     scaleMode = "cover",
-    backgroundColor = "black",
+    backgroundColor = "white",
     zoom = 1.0,
     panX = 0,
     panY = 0,
@@ -1005,6 +1005,13 @@ export function processImage(source, options = {}) {
     console.log(
       `    Compress dynamic range: ${params.compressDynamicRange ?? false}`,
     );
+    console.log(`    Scale mode: ${scaleMode}`);
+    if (scaleMode === "fit" || scaleMode === "custom") {
+      console.log(`    Background color: ${backgroundColor}`);
+    }
+    if (scaleMode === "custom") {
+      console.log(`    Zoom: ${zoom}, Pan: (${panX}, ${panY})`);
+    }
   }
 
   // Save original canvas for thumbnail generation
@@ -1024,14 +1031,24 @@ export function processImage(source, options = {}) {
   let bgMask = null;
 
   if (scaleMode === "fit" || scaleMode === "custom") {
-    const bgColor = palette.theoretical[backgroundColor] || palette.theoretical.black;
+    const bgColor =
+      palette.theoretical[backgroundColor] || palette.theoretical.black;
     const bgHex = `rgb(${bgColor.r},${bgColor.g},${bgColor.b})`;
 
     // Resize function based on scale mode
     const resizeFn = (bg) =>
       scaleMode === "fit"
         ? resizeImageFit(canvas, finalWidth, finalHeight, bg, createCanvas)
-        : resizeImageCustom(canvas, finalWidth, finalHeight, zoom, panX, panY, bg, createCanvas);
+        : resizeImageCustom(
+            canvas,
+            finalWidth,
+            finalHeight,
+            zoom,
+            panX,
+            panY,
+            bg,
+            createCanvas,
+          );
 
     if (verbose) {
       console.log(
@@ -1043,7 +1060,12 @@ export function processImage(source, options = {}) {
 
     // First pass: transparent background to build mask
     const tempCanvas = resizeFn("rgba(0,0,0,0)");
-    const tempData = getCanvasContext(tempCanvas).getImageData(0, 0, finalWidth, finalHeight);
+    const tempData = getCanvasContext(tempCanvas).getImageData(
+      0,
+      0,
+      finalWidth,
+      finalHeight,
+    );
     bgMask = new Uint8Array(finalWidth * finalHeight);
     for (let i = 0; i < bgMask.length; i++) {
       bgMask[i] = tempData.data[i * 4 + 3] === 0 ? 1 : 0;

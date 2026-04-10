@@ -310,8 +310,16 @@ program
     "--rotate <degrees>",
     "Rotate image before processing (0, 90, 180, 270)",
   )
-  .option("--scale-mode <mode>", "Scale mode: cover (crop to fill) or fit (letterbox)", "cover")
-  .option("--background-color <name>", "Background palette color for fit mode (black, white, etc.)", "black")
+  .option(
+    "--scale-mode <mode>",
+    "Scale mode: cover (crop to fill) or fit (letterbox)",
+    "cover",
+  )
+  .option(
+    "--background-color <name>",
+    "Background palette color for fit mode (black, white, etc.)",
+    "white",
+  )
   .option("--skip-dithering", "Skip dithering step")
   .option(
     "--use-perceived-output",
