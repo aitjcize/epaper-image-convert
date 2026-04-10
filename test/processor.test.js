@@ -5,6 +5,8 @@ import {
   rgbToLab,
   getCanvasContext,
   resizeImageCover,
+  resizeImageFit,
+  resizeImageCustom,
   generateThumbnail,
   rotateImage,
   applyExifOrientation,
@@ -102,6 +104,99 @@ describe("processor", () => {
 
       expect(resized.width).toBe(800);
       expect(resized.height).toBe(480);
+    });
+  });
+
+  describe("resizeImageFit", () => {
+    it("should fit landscape source into target with letterbox", () => {
+      const source = createCanvas(1000, 600);
+      const result = resizeImageFit(source, 800, 480, "white", createCanvas);
+
+      expect(result.width).toBe(800);
+      expect(result.height).toBe(480);
+    });
+
+    it("should fit portrait source into landscape target with bars on sides", () => {
+      const source = createCanvas(600, 1000);
+      const result = resizeImageFit(source, 800, 480, "white", createCanvas);
+
+      expect(result.width).toBe(800);
+      expect(result.height).toBe(480);
+
+      // Check left bar is filled with white (background)
+      const ctx = result.getContext("2d");
+      const pixel = ctx.getImageData(0, 0, 1, 1).data;
+      expect(pixel[0]).toBe(255); // R
+      expect(pixel[1]).toBe(255); // G
+      expect(pixel[2]).toBe(255); // B
+    });
+
+    it("should center the image", () => {
+      const source = createCanvas(100, 100);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "red";
+      ctx.fillRect(0, 0, 100, 100);
+
+      const result = resizeImageFit(source, 400, 200, "black", createCanvas);
+
+      // Image should be centered: 200x200 scaled to 200x200, offset at (100, 0)
+      const resultCtx = result.getContext("2d");
+      // Left bar should be black
+      const leftPixel = resultCtx.getImageData(0, 100, 1, 1).data;
+      expect(leftPixel[0]).toBe(0);
+      // Center should be red
+      const centerPixel = resultCtx.getImageData(200, 100, 1, 1).data;
+      expect(centerPixel[0]).toBe(255);
+      expect(centerPixel[1]).toBe(0);
+    });
+  });
+
+  describe("resizeImageCustom", () => {
+    it("should draw image at custom zoom and pan", () => {
+      const source = createCanvas(100, 100);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "red";
+      ctx.fillRect(0, 0, 100, 100);
+
+      const result = resizeImageCustom(
+        source,
+        200,
+        200,
+        1.0,
+        50,
+        50,
+        "black",
+        createCanvas,
+      );
+
+      expect(result.width).toBe(200);
+      expect(result.height).toBe(200);
+
+      const resultCtx = result.getContext("2d");
+      // Top-left should be background (black)
+      const bgPixel = resultCtx.getImageData(0, 0, 1, 1).data;
+      expect(bgPixel[0]).toBe(0);
+      // At (50,50) should be red (image starts here)
+      const imgPixel = resultCtx.getImageData(75, 75, 1, 1).data;
+      expect(imgPixel[0]).toBe(255);
+      expect(imgPixel[1]).toBe(0);
+    });
+
+    it("should output at specified dimensions regardless of zoom", () => {
+      const source = createCanvas(100, 100);
+      const result = resizeImageCustom(
+        source,
+        800,
+        480,
+        0.5,
+        0,
+        0,
+        "white",
+        createCanvas,
+      );
+
+      expect(result.width).toBe(800);
+      expect(result.height).toBe(480);
     });
   });
 
@@ -302,6 +397,92 @@ describe("processor", () => {
       // Middle should be grayish (not pure black or white)
       expect(middlePixel[0]).toBeGreaterThan(50);
       expect(middlePixel[0]).toBeLessThan(200);
+    });
+
+    it("should use fit scale mode with background", () => {
+      const source = createCanvas(600, 1000); // Portrait
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 600, 1000);
+
+      const result = processImage(source, {
+        displayWidth: 800,
+        displayHeight: 480,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        scaleMode: "fit",
+        backgroundColor: "white",
+        createCanvas,
+      });
+
+      // Output should match target dimensions
+      expect(result.canvas.width).toBe(800);
+      expect(result.canvas.height).toBe(480);
+
+      // Left edge should be white (letterbox bar) — palette white is (255,255,255)
+      const imageData = result.canvas
+        .getContext("2d")
+        .getImageData(0, 240, 1, 1);
+      expect(imageData.data[0]).toBe(255);
+      expect(imageData.data[1]).toBe(255);
+      expect(imageData.data[2]).toBe(255);
+    });
+
+    it("should use fit scale mode with black background", () => {
+      const source = createCanvas(600, 1000); // Portrait
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 600, 1000);
+
+      const result = processImage(source, {
+        displayWidth: 800,
+        displayHeight: 480,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        scaleMode: "fit",
+        backgroundColor: "black",
+        createCanvas,
+      });
+
+      // Left edge should be black (letterbox bar) — palette black is (0,0,0)
+      const imageData = result.canvas
+        .getContext("2d")
+        .getImageData(0, 240, 1, 1);
+      expect(imageData.data[0]).toBe(0);
+      expect(imageData.data[1]).toBe(0);
+      expect(imageData.data[2]).toBe(0);
+    });
+
+    it("should use custom scale mode with zoom and pan", () => {
+      const source = createCanvas(100, 100);
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "red";
+      ctx.fillRect(0, 0, 100, 100);
+
+      const result = processImage(source, {
+        displayWidth: 200,
+        displayHeight: 200,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        scaleMode: "custom",
+        backgroundColor: "white",
+        zoom: 1.0,
+        panX: 50,
+        panY: 50,
+        skipDithering: true,
+        createCanvas,
+      });
+
+      expect(result.canvas.width).toBe(200);
+      expect(result.canvas.height).toBe(200);
+
+      // Top-left should be white background
+      const bgPixel = result.canvas
+        .getContext("2d")
+        .getImageData(0, 0, 1, 1).data;
+      expect(bgPixel[0]).toBe(255);
+      expect(bgPixel[1]).toBe(255);
+      expect(bgPixel[2]).toBe(255);
     });
   });
 
