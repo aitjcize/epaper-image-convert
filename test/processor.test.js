@@ -6,7 +6,7 @@ import {
   getCanvasContext,
   resizeImageCover,
   generateThumbnail,
-  rotate90Clockwise,
+  rotateImage,
   applyExifOrientation,
   processImage,
   createPNG,
@@ -105,13 +105,35 @@ describe("processor", () => {
     });
   });
 
-  describe("rotate90Clockwise", () => {
-    it("should swap width and height", () => {
+  describe("rotateImage", () => {
+    it("should swap width and height for 90°", () => {
       const source = createCanvas(400, 600);
-      const rotated = rotate90Clockwise(source, createCanvas);
+      const rotated = rotateImage(source, 90, createCanvas);
 
       expect(rotated.width).toBe(600);
       expect(rotated.height).toBe(400);
+    });
+
+    it("should keep dimensions for 180°", () => {
+      const source = createCanvas(400, 600);
+      const rotated = rotateImage(source, 180, createCanvas);
+
+      expect(rotated.width).toBe(400);
+      expect(rotated.height).toBe(600);
+    });
+
+    it("should return same canvas for 0°", () => {
+      const source = createCanvas(400, 600);
+      const rotated = rotateImage(source, 0, createCanvas);
+
+      expect(rotated).toBe(source);
+    });
+
+    it("should throw for non-90° multiples", () => {
+      const source = createCanvas(400, 600);
+      expect(() => rotateImage(source, 45, createCanvas)).toThrow(
+        "multiple of 90",
+      );
     });
   });
 
@@ -179,7 +201,7 @@ describe("processor", () => {
       expect(result.canvas.height).toBe(480);
     });
 
-    it("should rotate portrait images by default", () => {
+    it("should resize portrait source to landscape target (crop to fill)", () => {
       const source = createCanvas(600, 1000); // Portrait
       const ctx = source.getContext("2d");
       ctx.fillStyle = "#808080";
@@ -193,27 +215,45 @@ describe("processor", () => {
         createCanvas,
       });
 
-      // Output should be landscape
+      // Output should match target dimensions (cropped, not rotated)
       expect(result.canvas.width).toBe(800);
       expect(result.canvas.height).toBe(480);
     });
 
-    it("should skip rotation when skipRotation is true", () => {
+    it("should not auto-rotate, just resize to target dimensions", () => {
       const source = createCanvas(600, 1000); // Portrait
       const ctx = source.getContext("2d");
       ctx.fillStyle = "#808080";
       ctx.fillRect(0, 0, 600, 1000);
 
+      // Portrait source with landscape target: should crop to fill, not rotate
       const result = processImage(source, {
         displayWidth: 800,
         displayHeight: 480,
         palette: SPECTRA6,
         params: getPreset("balanced"),
-        skipRotation: true,
         createCanvas,
       });
 
-      // Output should be portrait (height, width swapped for display)
+      expect(result.canvas.width).toBe(800);
+      expect(result.canvas.height).toBe(480);
+    });
+
+    it("should resize portrait source to portrait target without rotation", () => {
+      const source = createCanvas(600, 1000); // Portrait
+      const ctx = source.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, 600, 1000);
+
+      // Portrait source with portrait target: should just resize
+      const result = processImage(source, {
+        displayWidth: 480,
+        displayHeight: 800,
+        palette: SPECTRA6,
+        params: getPreset("balanced"),
+        createCanvas,
+      });
+
       expect(result.canvas.width).toBe(480);
       expect(result.canvas.height).toBe(800);
     });

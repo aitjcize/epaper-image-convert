@@ -14,6 +14,7 @@ import ExifReader from "exifreader";
 import {
   processImage,
   applyExifOrientation,
+  rotateImage,
   generateThumbnail,
   createPNG,
   createBMP,
@@ -85,11 +86,22 @@ async function processImageFile(inputPath, outputPath, options) {
   }
 
   // Apply EXIF orientation
-  const exifCorrectedCanvas = applyExifOrientation(
+  let correctedCanvas = applyExifOrientation(
     sourceCanvas,
     orientation,
     createCanvas,
   );
+
+  // Apply manual rotation if requested
+  if (options.rotate) {
+    const degrees = parseInt(options.rotate, 10);
+    correctedCanvas = rotateImage(correctedCanvas, degrees, createCanvas);
+    if (options.verbose) {
+      console.log(
+        `  Rotated ${degrees}° (${correctedCanvas.width}x${correctedCanvas.height})`,
+      );
+    }
+  }
 
   // Get palette
   let palette;
@@ -151,12 +163,11 @@ async function processImageFile(inputPath, outputPath, options) {
   );
 
   // Process image
-  const { canvas, originalCanvas } = processImage(exifCorrectedCanvas, {
+  const { canvas, originalCanvas } = processImage(correctedCanvas, {
     displayWidth,
     displayHeight,
     palette,
     params: processingParams,
-    skipRotation: options.skipRotation,
     skipDithering: options.skipDithering,
     usePerceivedOutput: options.usePerceivedOutput,
     verbose: options.verbose,
@@ -293,7 +304,10 @@ program
   )
   .option("--compress-dynamic-range", "Compress dynamic range to display range")
   .option("--no-compress-dynamic-range", "Disable dynamic range compression")
-  .option("--skip-rotation", "Skip portrait-to-landscape rotation")
+  .option(
+    "--rotate <degrees>",
+    "Rotate image before processing (0, 90, 180, 270)",
+  )
   .option("--skip-dithering", "Skip dithering step")
   .option(
     "--use-perceived-output",

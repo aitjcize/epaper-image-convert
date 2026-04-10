@@ -495,20 +495,35 @@ function preprocessImage(imageData, params, perceivedPalette) {
 /**
  * Rotate canvas 90 degrees clockwise
  */
-export function rotate90Clockwise(canvas, createCanvas = null) {
+/**
+ * Rotate canvas by the specified degrees (must be a multiple of 90)
+ */
+export function rotateImage(canvas, degrees, createCanvas = null) {
+  const d = ((degrees % 360) + 360) % 360;
+  if (d % 90 !== 0) {
+    throw new Error(
+      `Rotation must be a multiple of 90 degrees, got ${degrees}`,
+    );
+  }
+  if (d === 0) return canvas;
+
+  const swapDims = d === 90 || d === 270;
+  const outW = swapDims ? canvas.height : canvas.width;
+  const outH = swapDims ? canvas.width : canvas.height;
+
   let rotatedCanvas;
   if (createCanvas) {
-    rotatedCanvas = createCanvas(canvas.height, canvas.width);
+    rotatedCanvas = createCanvas(outW, outH);
   } else {
     rotatedCanvas = document.createElement("canvas");
-    rotatedCanvas.width = canvas.height;
-    rotatedCanvas.height = canvas.width;
+    rotatedCanvas.width = outW;
+    rotatedCanvas.height = outH;
   }
 
   const ctx = getCanvasContext(rotatedCanvas);
-  ctx.translate(canvas.height, 0);
-  ctx.rotate(Math.PI / 2);
-  ctx.drawImage(canvas, 0, 0);
+  ctx.translate(outW / 2, outH / 2);
+  ctx.rotate((d * Math.PI) / 180);
+  ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
 
   return rotatedCanvas;
 }
@@ -839,7 +854,6 @@ export async function createEPDGZ(canvas) {
  * @param {number} options.displayHeight - Display height in pixels (required)
  * @param {Object} options.palette - Palette pair { theoretical, perceived } (default: SPECTRA6)
  * @param {Object} options.params - Processing parameters (exposure, saturation, etc.)
- * @param {boolean} options.skipRotation - Skip portrait-to-landscape rotation (default: false)
  * @param {boolean} options.skipDithering - Skip dithering step (default: false)
  * @param {boolean} options.usePerceivedOutput - Use perceived palette for output (default: false)
  * @param {boolean} options.verbose - Enable verbose logging (default: false)
@@ -852,7 +866,6 @@ export function processImage(source, options = {}) {
     displayHeight = DEFAULT_DISPLAY_HEIGHT,
     palette = SPECTRA6,
     params = getDefaultParams(),
-    skipRotation = false,
     skipDithering = false,
     usePerceivedOutput = false,
     verbose = false,
@@ -913,30 +926,10 @@ export function processImage(source, options = {}) {
   }
   getCanvasContext(originalCanvas, "2d", true).drawImage(canvas, 0, 0);
 
-  // Check orientation match between source and target
-  // If they differ (one portrait, one landscape), rotate to match target
-  const isSourcePortrait = canvas.height > canvas.width;
-  const isTargetPortrait = displayHeight > displayWidth;
-
-  if (isSourcePortrait !== isTargetPortrait && !skipRotation) {
-    if (verbose) {
-      console.log(
-        `  Orientation mismatch (Source: ${isSourcePortrait ? "Portrait" : "Landscape"}, Target: ${isTargetPortrait ? "Portrait" : "Landscape"}). Rotating 90° clockwise`,
-      );
-    }
-    canvas = rotate90Clockwise(canvas, createCanvas);
-  }
-
-  // Resize to display dimensions
-  let finalWidth = displayWidth;
-  let finalHeight = displayHeight;
-
-  // If we skipped rotation despite an orientation mismatch, swap target dimensions
-  // to match the image orientation (treating display as rotated)
-  if (isSourcePortrait !== isTargetPortrait && skipRotation) {
-    finalWidth = displayHeight;
-    finalHeight = displayWidth;
-  }
+  // Resize to display dimensions (caller is responsible for passing
+  // dimensions in the correct orientation)
+  const finalWidth = displayWidth;
+  const finalHeight = displayHeight;
 
   if (canvas.width !== finalWidth || canvas.height !== finalHeight) {
     if (verbose) {

@@ -17,7 +17,7 @@ export {
   getCanvasContext,
   paletteToArray,
   rgbToLab,
-  rotate90Clockwise,
+  rotateImage,
   DEFAULT_DISPLAY_WIDTH,
   DEFAULT_DISPLAY_HEIGHT,
   DEFAULT_THUMBNAIL_WIDTH,
