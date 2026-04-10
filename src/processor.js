@@ -949,6 +949,10 @@ export async function createEPDGZ(canvas) {
  * @param {number} options.displayHeight - Display height in pixels (required)
  * @param {Object} options.palette - Palette pair { theoretical, perceived } (default: SPECTRA6)
  * @param {Object} options.params - Processing parameters (exposure, saturation, etc.)
+ * @param {string|null} options.orientation - Display orientation: "landscape", "portrait", or null.
+ *   When null (default), uses native panel orientation (no rotation).
+ *   When set and different from native, processes at swapped dimensions then rotates output
+ *   90° CW to produce native panel layout.
  * @param {string} options.scaleMode - Scale mode: "cover" (crop), "fit" (letterbox), or "custom" (zoom/pan)
  * @param {string} options.backgroundColor - Palette color name for fit/custom background (default: "white")
  * @param {number} options.zoom - Zoom factor for custom mode (default: 1.0)
@@ -961,11 +965,14 @@ export async function createEPDGZ(canvas) {
  * @returns {Object} { canvas, originalCanvas }
  */
 export function processImage(source, options = {}) {
-  const {
+  let {
     displayWidth = DEFAULT_DISPLAY_WIDTH,
     displayHeight = DEFAULT_DISPLAY_HEIGHT,
+  } = options;
+  const {
     palette = SPECTRA6,
     params = getDefaultParams(),
+    orientation = null,
     scaleMode = "cover",
     backgroundColor = "white",
     zoom = 1.0,
@@ -995,6 +1002,24 @@ export function processImage(source, options = {}) {
     ctx.drawImage(source, 0, 0);
   }
 
+  // Check if orientation doesn't match native panel aspect ratio.
+  // If mismatched, swap processing dimensions and rotate the output at the end.
+  // If orientation is null, use native (no rotation).
+  // e.g. portrait on 800x480 panel → process at 480x800 → rotate to 800x480
+  // e.g. landscape on 1200x1600 panel → process at 1600x1200 → rotate to 1200x1600
+  const nativeIsLandscape = displayWidth > displayHeight;
+  const orientIsLandscape =
+    orientation === null ? nativeIsLandscape : orientation !== "portrait";
+  const needsRotation = nativeIsLandscape !== orientIsLandscape;
+  if (needsRotation) {
+    [displayWidth, displayHeight] = [displayHeight, displayWidth];
+    if (verbose) {
+      console.log(
+        `  ${orientation} mode on ${nativeIsLandscape ? "landscape" : "portrait"} panel: processing at ${displayWidth}x${displayHeight}`,
+      );
+    }
+  }
+
   if (verbose) {
     console.log(`  Original size: ${canvas.width}x${canvas.height}`);
     console.log(`  Processing parameters:`);
@@ -1017,6 +1042,11 @@ export function processImage(source, options = {}) {
     );
     console.log(
       `    Compress dynamic range: ${params.compressDynamicRange ?? false}`,
+    );
+    const nativeOrient = nativeIsLandscape ? "landscape" : "portrait";
+    const effectiveOrient = orientation || nativeOrient;
+    console.log(
+      `    Orientation: ${effectiveOrient}${effectiveOrient === nativeOrient ? " (native)" : ""}`,
     );
     console.log(`    Scale mode: ${scaleMode}`);
     if (scaleMode === "fit" || scaleMode === "custom") {
@@ -1163,6 +1193,16 @@ export function processImage(source, options = {}) {
   }
 
   getCanvasContext(canvas).putImageData(imageData, 0, 0);
+
+  // Rotate output to native panel layout when orientation doesn't match panel
+  if (needsRotation) {
+    canvas = rotateImage(canvas, 90, createCanvas);
+    if (verbose) {
+      console.log(
+        `  Rotated output 90° CW to native layout (${canvas.width}x${canvas.height})`,
+      );
+    }
+  }
 
   return { canvas, originalCanvas };
 }

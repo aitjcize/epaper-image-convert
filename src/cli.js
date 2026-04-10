@@ -14,7 +14,6 @@ import ExifReader from "exifreader";
 import {
   processImage,
   applyExifOrientation,
-  rotateImage,
   generateThumbnail,
   createPNG,
   createBMP,
@@ -84,22 +83,11 @@ async function processImageFile(inputPath, outputPath, options) {
   }
 
   // Apply EXIF orientation
-  let correctedCanvas = applyExifOrientation(
+  const correctedCanvas = applyExifOrientation(
     sourceCanvas,
     orientation,
     createCanvas,
   );
-
-  // Apply manual rotation if requested
-  if (options.rotate) {
-    const degrees = parseInt(options.rotate, 10);
-    correctedCanvas = rotateImage(correctedCanvas, degrees, createCanvas);
-    if (options.verbose) {
-      console.log(
-        `  Rotated ${degrees}° (${correctedCanvas.width}x${correctedCanvas.height})`,
-      );
-    }
-  }
 
   // Get palette
   let palette;
@@ -166,6 +154,7 @@ async function processImageFile(inputPath, outputPath, options) {
     displayHeight,
     palette,
     params: processingParams,
+    orientation: options.orientation,
     scaleMode: options.scaleMode,
     backgroundColor: options.backgroundColor,
     skipDithering: options.skipDithering,
@@ -304,8 +293,8 @@ program
   .option("--compress-dynamic-range", "Compress dynamic range to display range")
   .option("--no-compress-dynamic-range", "Disable dynamic range compression")
   .option(
-    "--rotate <degrees>",
-    "Rotate image before processing (0, 90, 180, 270)",
+    "--orientation <mode>",
+    "Display orientation: landscape or portrait (default: native)",
   )
   .option(
     "--scale-mode <mode>",
