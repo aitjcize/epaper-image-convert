@@ -296,6 +296,35 @@ describe("processor", () => {
       expect(result.canvas.height).toBe(480);
     });
 
+    // Regression: thumbnails are generated from originalCanvas, so they must
+    // reflect the user's chosen scaleMode — cropping/letterboxing/zoom-pan.
+    // A pre-layout snapshot would leave gallery thumbnails showing the raw
+    // source and not matching what the device actually displays.
+    it.each(["cover", "fit", "custom"])(
+      "originalCanvas matches display dims after scaleMode=%s",
+      (scaleMode) => {
+        const source = createCanvas(1600, 900); // differs from target
+        const ctx = source.getContext("2d");
+        ctx.fillStyle = "#808080";
+        ctx.fillRect(0, 0, 1600, 900);
+
+        const result = processImage(source, {
+          displayWidth: 800,
+          displayHeight: 480,
+          palette: SPECTRA6,
+          params: getPreset("balanced"),
+          scaleMode,
+          zoom: 1.0,
+          panX: 0,
+          panY: 0,
+          createCanvas,
+        });
+
+        expect(result.originalCanvas.width).toBe(800);
+        expect(result.originalCanvas.height).toBe(480);
+      },
+    );
+
     it("should resize portrait source to landscape target (crop to fill)", () => {
       const source = createCanvas(600, 1000); // Portrait
       const ctx = source.getContext("2d");

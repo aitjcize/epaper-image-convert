@@ -1057,17 +1057,6 @@ export function processImage(source, options = {}) {
     }
   }
 
-  // Save original canvas for thumbnail generation
-  let originalCanvas;
-  if (createCanvas) {
-    originalCanvas = createCanvas(canvas.width, canvas.height);
-  } else {
-    originalCanvas = document.createElement("canvas");
-    originalCanvas.width = canvas.width;
-    originalCanvas.height = canvas.height;
-  }
-  getCanvasContext(originalCanvas, "2d", true).drawImage(canvas, 0, 0);
-
   // Resize to display dimensions
   const finalWidth = displayWidth;
   const finalHeight = displayHeight;
@@ -1122,6 +1111,22 @@ export function processImage(source, options = {}) {
     }
     canvas = resizeImageCover(canvas, finalWidth, finalHeight, createCanvas);
   }
+
+  // Snapshot the post-layout, pre-dither canvas for thumbnail generation.
+  // Capturing here (rather than before the resize block) ensures the
+  // thumbnail reflects the user's chosen scaleMode — cover crop, fit
+  // letterbox, or custom zoom/pan — so gallery previews match what the
+  // device actually displays. Still captured in clean 24-bit color to
+  // avoid dither artifacts at thumbnail sizes.
+  let originalCanvas;
+  if (createCanvas) {
+    originalCanvas = createCanvas(canvas.width, canvas.height);
+  } else {
+    originalCanvas = document.createElement("canvas");
+    originalCanvas.width = canvas.width;
+    originalCanvas.height = canvas.height;
+  }
+  getCanvasContext(originalCanvas, "2d", true).drawImage(canvas, 0, 0);
 
   // Get image data for processing
   const imageData = getCanvasContext(canvas).getImageData(

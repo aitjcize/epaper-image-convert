@@ -182,7 +182,9 @@ async function processImageFile(inputPath, outputPath, options) {
   fs.writeFileSync(outputPath, outputBuffer);
   console.log(`  Output: ${outputPath}`);
 
-  // Generate thumbnail from original source (clean, unprocessed)
+  // Generate thumbnail from the post-layout, pre-dither canvas so the
+  // gallery preview matches what the device displays (cover / fit /
+  // custom all respected) while avoiding dither artifacts at thumb size.
   if (options.thumbnail) {
     const maxDim = parseInt(options.thumbnailMaxDimension, 10) || 400;
     const thumbnailCanvas = generateThumbnail(
