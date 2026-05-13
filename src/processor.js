@@ -375,9 +375,105 @@ function applyErrorDiffusionDither(
   const height = imageData.height;
   const data = imageData.data;
 
-  const errors = new Array(width * height * 3).fill(0);
   const diffusionMatrix =
     DIFFUSION_MATRICES[algorithm] || DIFFUSION_MATRICES["floyd-steinberg"];
+
+  // maxDy: farthest number of rows below the current pixel that the kernel
+  // spreads error to.  Used to size botPad so error diffusing off the bottom
+  // edge has somewhere to land without writing out of bounds.
+  const maxDy = Math.max(...diffusionMatrix.map(([, dy]) => dy));
+
+  // maxDx: farthest horizontal distance (in either direction) that the kernel
+  // spreads error to.  Used to size rightPad.
+  const maxDx = Math.max(...diffusionMatrix.map(([dx]) => Math.abs(dx)));
+
+  // Extend the image with phantom rows and columns on all four sides so that
+  // every real pixel sees an interior-like neighborhood during error diffusion.
+  //
+  // Phantom rows (top):
+  //   Real row 0 starts with no accumulated vertical error, so every pixel
+  //   independently picks its nearest palette color, producing a solid-color
+  //   stripe (e.g. all-green for a muted sky).  32 rows of run-in gives any
+  //   kernel enough time to reach statistical steady state.
+  //   The bottom only needs maxDy rows — it absorbs outgoing error but does
+  //   not need to seed the real image.
+  //
+  // Phantom columns (left/right):
+  //   x=0 starts each row with no horizontal carry-in: the dominant same-row
+  //   forward component has no pixel to its left.  Same reasoning as topPad:
+  //   32 columns of run-in reaches steady state for any kernel.
+  //   rightPad only needs maxDx — it absorbs outgoing error, same as botPad.
+  //
+  // All phantom content is mirrored from the adjacent real edge (reflect
+  // padding).  Phantom outputs are discarded; only the real region is written
+  // back.
+  const topPad = 32;
+  const botPad = maxDy;
+  const leftPad = 32;
+  const rightPad = maxDx;
+
+  const extHeight = height + topPad + botPad;
+  const extWidth = width + leftPad + rightPad;
+  const extData = new Uint8Array(extWidth * extHeight * 4);
+
+  // Copy one source row from imageData into the extended buffer at dstExtRow,
+  // placing real pixels in the middle and mirroring edge pixels into the
+  // phantom columns on either side.
+  function copyRowToExt(srcRow, dstExtRow) {
+    const srcBase = srcRow * width * 4;
+    const dstBase = dstExtRow * extWidth * 4;
+
+    // Real columns (bulk copy)
+    extData.set(
+      data.subarray(srcBase, srcBase + width * 4),
+      dstBase + leftPad * 4,
+    );
+
+    // Left phantom columns: phantom col (leftPad-1-k) mirrors real col k
+    for (let k = 0; k < leftPad; k++) {
+      const si = srcBase + k * 4;
+      const di = dstBase + (leftPad - 1 - k) * 4;
+      extData[di] = data[si];
+      extData[di + 1] = data[si + 1];
+      extData[di + 2] = data[si + 2];
+      extData[di + 3] = data[si + 3];
+    }
+
+    // Right phantom columns: phantom col (leftPad+width+k) mirrors real col (width-1-k)
+    for (let k = 0; k < rightPad; k++) {
+      const si = srcBase + (width - 1 - k) * 4;
+      const di = dstBase + (leftPad + width + k) * 4;
+      extData[di] = data[si];
+      extData[di + 1] = data[si + 1];
+      extData[di + 2] = data[si + 2];
+      extData[di + 3] = data[si + 3];
+    }
+  }
+
+  // Phantom rows above: mirror the first min(topPad, height) real rows in
+  // reverse so the row adjacent to real row 0 holds image row 0 content.
+  const mirrorSrc = Math.min(topPad, height);
+  for (let dy = 0; dy < topPad; dy++) {
+    copyRowToExt(mirrorSrc - 1 - (dy % mirrorSrc), dy);
+  }
+
+  // Real rows
+  for (let y = 0; y < height; y++) {
+    copyRowToExt(y, topPad + y);
+  }
+
+  // Phantom rows below: mirror from the last botPad real rows
+  for (let dy = 0; dy < botPad; dy++) {
+    copyRowToExt(height - 1 - dy, topPad + height + dy);
+  }
+
+  // Accumulated quantization error per pixel (R, G, B floats) for the extended
+  // image.  Each pixel's error — the difference between its adjusted color and
+  // the palette color chosen for it — is distributed to neighbors via the
+  // diffusion matrix.  Neighbors add that carry-in to their raw value before
+  // picking their own palette color, so mistakes propagate forward rather than
+  // being discarded.
+  const errors = new Array(extWidth * extHeight * 3).fill(0);
 
   // Pre-compute LAB values for dither palette if using LAB method
   const ditherPaletteLab =
@@ -385,19 +481,19 @@ function applyErrorDiffusionDither(
       ? ditherPaletteArray.map(([r, g, b]) => rgbToLab(r, g, b))
       : null;
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = (y * width + x) * 4;
-      const errIdx = (y * width + x) * 3;
+  for (let y = 0; y < extHeight; y++) {
+    for (let x = 0; x < extWidth; x++) {
+      const idx = (y * extWidth + x) * 4;
+      const errIdx = (y * extWidth + x) * 3;
 
-      const oldR = Math.max(0, Math.min(255, data[idx] + errors[errIdx]));
+      const oldR = Math.max(0, Math.min(255, extData[idx] + errors[errIdx]));
       const oldG = Math.max(
         0,
-        Math.min(255, data[idx + 1] + errors[errIdx + 1]),
+        Math.min(255, extData[idx + 1] + errors[errIdx + 1]),
       );
       const oldB = Math.max(
         0,
-        Math.min(255, data[idx + 2] + errors[errIdx + 2]),
+        Math.min(255, extData[idx + 2] + errors[errIdx + 2]),
       );
 
       const colorIdx = findClosestColor(
@@ -410,9 +506,9 @@ function applyErrorDiffusionDither(
       );
       const [newR, newG, newB] = outputPaletteArray[colorIdx];
 
-      data[idx] = newR;
-      data[idx + 1] = newG;
-      data[idx + 2] = newB;
+      extData[idx] = newR;
+      extData[idx + 1] = newG;
+      extData[idx + 2] = newB;
 
       const [ditherR, ditherG, ditherB] = ditherPaletteArray[colorIdx];
       const errR = oldR - ditherR;
@@ -423,14 +519,22 @@ function applyErrorDiffusionDither(
         const nx = x + dx;
         const ny = y + dy;
 
-        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-          const nextIdx = (ny * width + nx) * 3;
+        // Phantom columns cover every kernel offset, so the only out-of-bounds
+        // accesses are from the outermost phantom pixels themselves — discard.
+        if (nx >= 0 && nx < extWidth && ny >= 0 && ny < extHeight) {
+          const nextIdx = (ny * extWidth + nx) * 3;
           errors[nextIdx] += errR * weight;
           errors[nextIdx + 1] += errG * weight;
           errors[nextIdx + 2] += errB * weight;
         }
       }
     }
+  }
+
+  // Write the real rows and columns back; phantom border is discarded.
+  for (let y = 0; y < height; y++) {
+    const srcBase = (y + topPad) * extWidth * 4 + leftPad * 4;
+    data.set(extData.subarray(srcBase, srcBase + width * 4), y * width * 4);
   }
 }
 
@@ -1157,6 +1261,50 @@ export function processImage(source, options = {}) {
   }
   const processingParams = { ...params, measuredPalette: palette.perceived };
   preprocessImage(imageData, processingParams, palette.perceived);
+
+  // Fill background pixels with mirrored image content before dithering.
+  // applyErrorDiffusionDither seeds its phantom border from imageData, so
+  // background-colored pixels (black letterbox bars) would give the phantom
+  // region the wrong content, leaving the real image edge cold-started.
+  // Mirroring image content into the background area here fixes that; the
+  // bgMask cleanup after dithering restores the correct palette color.
+  if (bgMask) {
+    let top = finalHeight, bottom = -1, left = finalWidth, right = -1;
+    for (let i = 0; i < bgMask.length; i++) {
+      if (!bgMask[i]) {
+        const iy = Math.floor(i / finalWidth);
+        const ix = i % finalWidth;
+        if (iy < top) top = iy;
+        if (iy > bottom) bottom = iy;
+        if (ix < left) left = ix;
+        if (ix > right) right = ix;
+      }
+    }
+    if (top <= bottom && left <= right) {
+      for (let i = 0; i < bgMask.length; i++) {
+        if (!bgMask[i]) continue;
+        const y = Math.floor(i / finalWidth);
+        const x = i % finalWidth;
+        const srcX =
+          x < left
+            ? Math.min(right, left + (left - x - 1))
+            : x > right
+              ? Math.max(left, right - (x - right - 1))
+              : x;
+        const srcY =
+          y < top
+            ? Math.min(bottom, top + (top - y - 1))
+            : y > bottom
+              ? Math.max(top, bottom - (y - bottom - 1))
+              : y;
+        const si = (srcY * finalWidth + srcX) * 4;
+        const di = i * 4;
+        imageData.data[di] = imageData.data[si];
+        imageData.data[di + 1] = imageData.data[si + 1];
+        imageData.data[di + 2] = imageData.data[si + 2];
+      }
+    }
+  }
 
   // Apply dithering
   if (!skipDithering) {
