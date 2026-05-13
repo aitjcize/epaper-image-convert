@@ -457,10 +457,10 @@ function preprocessImage(imageData, params, perceivedPalette) {
   } else {
     applyScurveTonemap(
       imageData,
-      params.strength,
-      params.shadowBoost,
-      params.highlightCompress,
-      params.midpoint,
+      params.strength ?? 0.9,
+      params.shadowBoost ?? 0.0,
+      params.highlightCompress ?? 1.5,
+      params.midpoint ?? 0.5,
     );
   }
 
@@ -1027,8 +1027,8 @@ export function processImage(source, options = {}) {
     console.log(`    Saturation: ${params.saturation ?? 1.0}`);
     console.log(`    Tone mode: ${params.toneMode || "contrast"}`);
     if (params.toneMode === "scurve") {
-      console.log(`    S-curve strength: ${params.strength ?? 0.5}`);
-      console.log(`    S-curve shadow boost: ${params.shadowBoost ?? 0.3}`);
+      console.log(`    S-curve strength: ${params.strength ?? 0.9}`);
+      console.log(`    S-curve shadow boost: ${params.shadowBoost ?? 0.0}`);
       console.log(
         `    S-curve highlight compress: ${params.highlightCompress ?? 1.5}`,
       );
