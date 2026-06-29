@@ -67,21 +67,68 @@ function buildGrayRamp(levels) {
 
 const GRAY16_RAMP = buildGrayRamp(16);
 
+// --- Perceived (calibrated) gray ramp -------------------------------------
+// e-paper gray can't reach pure black/white, so the *perceived* ramp is
+// compressed to the panel's real luminance. This is what makes
+// compressDynamicRange (CDR) meaningful for GC16 (without it, perceived black/
+// white are 0/255 and CDR is a no-op) and makes the preview match the panel.
+//
+// GRAY_BLACK_Y / GRAY_WHITE_Y are RELATIVE LUMINANCE (Y, 0..1) measured on the
+// panel (display full black / full white). MEASURE on your panel and update.
+const GRAY_BLACK_Y = 0.02;
+const GRAY_WHITE_Y = 0.9;
+
+// CIE L* (0..100) of a relative luminance Y (0..1).
+const lstarFromY = (y) => (y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y);
+
+// 8-bit sRGB neutral gray for a CIE L*.
+function grayFromLstar(L) {
+  const y = L > 8 ? Math.pow((L + 16) / 116, 3) : L / 903.3;
+  const s = y <= 0.0031308 ? 12.92 * y : 1.055 * Math.pow(y, 1 / 2.4) - 0.055;
+  return Math.max(0, Math.min(255, Math.round(s * 255)));
+}
+
+// Perceptually-even (linear in L*) gray ramp between the measured endpoints.
+function buildCalibratedGrayRamp(blackL, whiteL, levels) {
+  const grays = [];
+  for (let i = 0; i < levels; i++) {
+    const L = blackL + (i / (levels - 1)) * (whiteL - blackL);
+    const v = grayFromLstar(L);
+    grays.push([v, v, v]);
+  }
+  return grays;
+}
+
+const GRAY16_PERCEIVED = buildCalibratedGrayRamp(
+  lstarFromY(GRAY_BLACK_Y),
+  lstarFromY(GRAY_WHITE_Y),
+  16,
+);
+
 export const GRAYSCALE16 = {
   mode: "grayscale",
   levels: 16,
-  // theoretical == perceived: an approximately linear gray ramp. `grays` drives
-  // dithering + packing; the black/white aliases keep the background and
-  // dynamic-range-compression code (which reads palette.black/white) working.
+  // theoretical = the device output levels (full 0..255, level i -> nibble i).
+  // perceived = the panel's actual (compressed) luminance, used for dithering
+  // and CDR. The black/white aliases keep the background + dynamic-range code
+  // (which reads palette.black/white) working.
   theoretical: {
     grays: GRAY16_RAMP,
     black: { r: 0, g: 0, b: 0 },
     white: { r: 255, g: 255, b: 255 },
   },
   perceived: {
-    grays: GRAY16_RAMP,
-    black: { r: 0, g: 0, b: 0 },
-    white: { r: 255, g: 255, b: 255 },
+    grays: GRAY16_PERCEIVED,
+    black: {
+      r: GRAY16_PERCEIVED[0][0],
+      g: GRAY16_PERCEIVED[0][1],
+      b: GRAY16_PERCEIVED[0][2],
+    },
+    white: {
+      r: GRAY16_PERCEIVED[15][0],
+      g: GRAY16_PERCEIVED[15][1],
+      b: GRAY16_PERCEIVED[15][2],
+    },
   },
 };
 
