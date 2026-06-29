@@ -8,6 +8,7 @@
 import { program } from "commander";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { createCanvas, loadImage } from "canvas";
 import ExifReader from "exifreader";
 
@@ -38,6 +39,18 @@ import {
   getPresetOptions,
   getDitherOptions,
 } from "./presets.js";
+
+// Read the version from package.json so --version stays in sync with releases.
+const PKG_VERSION = JSON.parse(
+  fs.readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "package.json",
+    ),
+    "utf8",
+  ),
+).version;
 
 const DEFAULT_PARAMS = getDefaultParams();
 
@@ -246,7 +259,7 @@ program
   .description(
     "Convert images for e-paper displays with advanced tone mapping and dithering",
   )
-  .version("0.1.0")
+  .version(PKG_VERSION)
   .argument("[input]", "Input image file or directory")
   .argument("[output]", "Output file or directory")
   .option("-l, --list-presets", "List available presets and exit")
