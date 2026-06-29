@@ -29,6 +29,7 @@ export {
 export {
   SPECTRA6,
   GRAYSCALE16,
+  makeGrayscale16,
   PALETTE_PRESETS,
   getPalette,
   getPaletteNames,

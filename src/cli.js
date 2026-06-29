@@ -28,6 +28,7 @@ import {
   getPaletteNames,
   getPaletteOptions,
   isGrayscalePalette,
+  makeGrayscale16,
   parsePalette,
   SPECTRA6,
 } from "./palettes.js";
@@ -112,6 +113,16 @@ async function processImageFile(inputPath, outputPath, options) {
       console.error(`Error parsing palette JSON: ${e.message}`);
       process.exit(1);
     }
+  } else if (
+    options.grayBlackY !== undefined ||
+    options.grayWhiteY !== undefined
+  ) {
+    // GC16 panel-calibrated grayscale: derive the perceived ramp from the two
+    // measured luminance endpoints (theoretical stays the full output ramp).
+    palette = makeGrayscale16({
+      blackY: options.grayBlackY,
+      whiteY: options.grayWhiteY,
+    });
   } else {
     palette = getPalette(options.palettePreset) || SPECTRA6;
   }
@@ -277,6 +288,16 @@ program
   .option(
     "--palette <json>",
     "Custom palette JSON (overrides --palette-preset)",
+  )
+  .option(
+    "--gray-black-y <Y>",
+    "GC16 grayscale: measured relative luminance (0..1) of full black",
+    parseFloat,
+  )
+  .option(
+    "--gray-white-y <Y>",
+    "GC16 grayscale: measured relative luminance (0..1) of full white",
+    parseFloat,
   )
   .option(
     "-p, --processing-preset <name>",

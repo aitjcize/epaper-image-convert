@@ -99,38 +99,50 @@ function buildCalibratedGrayRamp(blackL, whiteL, levels) {
   return grays;
 }
 
-const GRAY16_PERCEIVED = buildCalibratedGrayRamp(
-  lstarFromY(GRAY_BLACK_Y),
-  lstarFromY(GRAY_WHITE_Y),
-  16,
-);
+/**
+ * Build a 16-level grayscale (GC16) palette from two measured luminance
+ * endpoints. The perceived ramp is *derived* (L* interpolation -> sRGB), so only
+ * the two endpoints need to be measured/transported -- a device reports its
+ * Y_black / Y_white and everyone (CLI, webapp, app) derives the same ramp here.
+ *
+ * theoretical = the device output ramp (0..255, level i -> nibble i).
+ * perceived   = the panel's compressed luminance (drives dithering + CDR); the
+ *               black/white aliases keep the background + dynamic-range code
+ *               (which reads palette.black/white) working.
+ *
+ * @param {Object} [opts]
+ * @param {number} [opts.blackY] Relative luminance Y (0..1) of full black.
+ * @param {number} [opts.whiteY] Relative luminance Y (0..1) of full white.
+ */
+export function makeGrayscale16({
+  blackY = GRAY_BLACK_Y,
+  whiteY = GRAY_WHITE_Y,
+} = {}) {
+  const perceived = buildCalibratedGrayRamp(
+    lstarFromY(blackY),
+    lstarFromY(whiteY),
+    16,
+  );
+  const toC = (a) => ({ r: a[0], g: a[1], b: a[2] });
+  return {
+    mode: "grayscale",
+    levels: 16,
+    theoretical: {
+      grays: GRAY16_RAMP,
+      black: { r: 0, g: 0, b: 0 },
+      white: { r: 255, g: 255, b: 255 },
+    },
+    perceived: {
+      grays: perceived,
+      black: toC(perceived[0]),
+      white: toC(perceived[perceived.length - 1]),
+    },
+  };
+}
 
-export const GRAYSCALE16 = {
-  mode: "grayscale",
-  levels: 16,
-  // theoretical = the device output levels (full 0..255, level i -> nibble i).
-  // perceived = the panel's actual (compressed) luminance, used for dithering
-  // and CDR. The black/white aliases keep the background + dynamic-range code
-  // (which reads palette.black/white) working.
-  theoretical: {
-    grays: GRAY16_RAMP,
-    black: { r: 0, g: 0, b: 0 },
-    white: { r: 255, g: 255, b: 255 },
-  },
-  perceived: {
-    grays: GRAY16_PERCEIVED,
-    black: {
-      r: GRAY16_PERCEIVED[0][0],
-      g: GRAY16_PERCEIVED[0][1],
-      b: GRAY16_PERCEIVED[0][2],
-    },
-    white: {
-      r: GRAY16_PERCEIVED[15][0],
-      g: GRAY16_PERCEIVED[15][1],
-      b: GRAY16_PERCEIVED[15][2],
-    },
-  },
-};
+// Default GC16 palette. GRAY_BLACK_Y / GRAY_WHITE_Y are the fallback endpoints;
+// a device that reports its own measured luminance overrides them.
+export const GRAYSCALE16 = makeGrayscale16();
 
 // Preset palette registry
 export const PALETTE_PRESETS = {
