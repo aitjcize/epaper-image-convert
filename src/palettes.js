@@ -222,6 +222,20 @@ export function validatePalette(palettePair) {
 export function parsePalette(jsonString) {
   const palettePair = JSON.parse(jsonString);
   validatePalette(palettePair);
+  // A grayscale palette may arrive as bare { grays: [...] } (e.g. from the
+  // server's MapProcessingSettings). Derive black/white aliases from the ramp
+  // ends so the background and dynamic-range-compression code paths -- which
+  // read palette.black/white -- work, matching the built-in GRAYSCALE16.
+  if (isGrayscalePalette(palettePair)) {
+    for (const sub of [palettePair.theoretical, palettePair.perceived]) {
+      if (sub && Array.isArray(sub.grays) && sub.grays.length) {
+        const lo = sub.grays[0];
+        const hi = sub.grays[sub.grays.length - 1];
+        if (!sub.black) sub.black = { r: lo[0], g: lo[1], b: lo[2] };
+        if (!sub.white) sub.white = { r: hi[0], g: hi[1], b: hi[2] };
+      }
+    }
+  }
   return palettePair;
 }
 
