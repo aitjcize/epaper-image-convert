@@ -28,11 +28,14 @@ export {
 // Re-export from palettes
 export {
   SPECTRA6,
+  GRAYSCALE16,
   PALETTE_PRESETS,
   getPalette,
   getPaletteNames,
+  getPaletteOptions,
   parsePalette,
   validatePalette,
+  isGrayscalePalette,
 } from "./palettes.js";
 
 // Re-export from presets
@@ -88,7 +91,7 @@ export async function convertImage(inputPath, options = {}) {
   // Import what we need
   const { processImage, applyExifOrientation, createEPDGZ } =
     await import("./processor.js");
-  const { getPalette } = await import("./palettes.js");
+  const { getPalette, isGrayscalePalette } = await import("./palettes.js");
   const { getPreset, mergeParams } = await import("./presets.js");
 
   // Load image
@@ -148,7 +151,9 @@ export async function convertImage(inputPath, options = {}) {
   });
 
   // Create EPDGZ buffer (default format)
-  const buffer = await createEPDGZ(canvas);
+  const buffer = await createEPDGZ(canvas, {
+    grayscale: isGrayscalePalette(usePalette),
+  });
 
   return { canvas, originalCanvas, buffer };
 }

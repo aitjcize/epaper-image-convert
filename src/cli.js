@@ -26,6 +26,7 @@ import {
   getPalette,
   getPaletteNames,
   getPaletteOptions,
+  isGrayscalePalette,
   parsePalette,
   SPECTRA6,
 } from "./palettes.js";
@@ -177,7 +178,9 @@ async function processImageFile(inputPath, outputPath, options) {
   } else if (format === "png") {
     outputBuffer = await createPNG(canvas);
   } else {
-    outputBuffer = await createEPDGZ(canvas);
+    outputBuffer = await createEPDGZ(canvas, {
+      grayscale: isGrayscalePalette(palette),
+    });
   }
   fs.writeFileSync(outputPath, outputBuffer);
   console.log(`  Output: ${outputPath}`);

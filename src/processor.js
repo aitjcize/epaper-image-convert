@@ -45,6 +45,10 @@ export function getCanvasContext(
  * Array format: [[r,g,b], ...] ordered as [black, white, yellow, red, reserved, blue, green]
  */
 export function paletteToArray(palette) {
+  // Grayscale palette: the gray ramp ([[r,g,b], ...]) is already the array form.
+  if (Array.isArray(palette.grays)) {
+    return palette.grays.map((g) => [g[0], g[1], g[2]]);
+  }
   return [
     [palette.black.r, palette.black.g, palette.black.b],
     [palette.white.r, palette.white.g, palette.white.b],
@@ -883,9 +887,15 @@ export function createBMP(canvas) {
 
 /**
  * Map a theoretical palette RGB value to its 4-bit palette index.
- * Color indices: 0=Black, 1=White, 2=Yellow, 3=Red, 5=Blue, 6=Green
+ * Color indices: 0=Black, 1=White, 2=Yellow, 3=Red, 5=Blue, 6=Green.
+ * For grayscale (GC16), the index is the 4-bit gray level itself (0=black..15=white).
  */
-function rgbToPaletteIndex(r, g, b) {
+function rgbToPaletteIndex(r, g, b, grayscale = false) {
+  if (grayscale) {
+    // Pixels are already quantized to the gray ramp, so r==g==b; map directly.
+    const idx = Math.round((r / 255) * 15);
+    return idx < 0 ? 0 : idx > 15 ? 15 : idx;
+  }
   if (r === 0 && g === 0 && b === 0) return 0; // Black
   if (r === 255 && g === 255 && b === 255) return 1; // White
   if (r === 255 && g === 255 && b === 0) return 2; // Yellow
@@ -899,25 +909,39 @@ function rgbToPaletteIndex(r, g, b) {
  * Convert canvas to EPDGZ (4-bit-per-pixel gzip-compressed raw e-paper data)
  *
  * Pixel packing: 2 pixels per byte, high nibble = first pixel, low nibble = second pixel.
+ * For grayscale (GC16 / IT8951) the nibble is the 4-bit gray level (0..15) rather
+ * than a Spectra palette index; pass { grayscale: true }.
  * Works in both Node.js (zlib) and browser (CompressionStream) environments.
  */
-export async function createEPDGZ(canvas) {
+export async function createEPDGZ(canvas, options = {}) {
+  const { grayscale = false } = options;
   const ctx = getCanvasContext(canvas);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const { width, height, data } = imageData;
 
   const rawBuffer = new Uint8Array(Math.ceil((width * height) / 2));
   let byteIdx = 0;
+  const padPixel = grayscale ? 15 : 1; // white
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x += 2) {
       const idx1 = (y * width + x) * 4;
-      const p1 = rgbToPaletteIndex(data[idx1], data[idx1 + 1], data[idx1 + 2]);
+      const p1 = rgbToPaletteIndex(
+        data[idx1],
+        data[idx1 + 1],
+        data[idx1 + 2],
+        grayscale,
+      );
 
-      let p2 = 1; // Default white for padding
+      let p2 = padPixel;
       if (x + 1 < width) {
         const idx2 = (y * width + x + 1) * 4;
-        p2 = rgbToPaletteIndex(data[idx2], data[idx2 + 1], data[idx2 + 2]);
+        p2 = rgbToPaletteIndex(
+          data[idx2],
+          data[idx2 + 1],
+          data[idx2 + 2],
+          grayscale,
+        );
       }
 
       rawBuffer[byteIdx++] = (p1 << 4) | (p2 & 0x0f);

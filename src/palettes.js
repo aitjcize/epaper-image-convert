@@ -49,11 +49,60 @@ export const SPECTRA6 = {
   },
 };
 
+/**
+ * Grayscale 16-level (GC16) — for IT8951-based panels such as the Seeed
+ * reTerminal E1003 (10.3" ED103TC2). Unlike the named-color Spectra palette,
+ * a grayscale palette carries a `grays` array of [r,g,b] levels; level index i
+ * maps directly to the 4-bit gray value i (0 = black … 15 = white). Dithering
+ * is identical to the color path, just quantized against this gray ramp.
+ */
+function buildGrayRamp(levels) {
+  const grays = [];
+  for (let i = 0; i < levels; i++) {
+    const v = Math.round((i * 255) / (levels - 1));
+    grays.push([v, v, v]);
+  }
+  return grays;
+}
+
+const GRAY16_RAMP = buildGrayRamp(16);
+
+export const GRAYSCALE16 = {
+  mode: "grayscale",
+  levels: 16,
+  // theoretical == perceived: an approximately linear gray ramp. `grays` drives
+  // dithering + packing; the black/white aliases keep the background and
+  // dynamic-range-compression code (which reads palette.black/white) working.
+  theoretical: {
+    grays: GRAY16_RAMP,
+    black: { r: 0, g: 0, b: 0 },
+    white: { r: 255, g: 255, b: 255 },
+  },
+  perceived: {
+    grays: GRAY16_RAMP,
+    black: { r: 0, g: 0, b: 0 },
+    white: { r: 255, g: 255, b: 255 },
+  },
+};
+
 // Preset palette registry
 export const PALETTE_PRESETS = {
   spectra6: SPECTRA6,
+  grayscale16: GRAYSCALE16,
   default: SPECTRA6,
 };
+
+/**
+ * @param {Object} palettePair - Palette pair { theoretical, perceived }
+ * @returns {boolean} True if this is a grayscale (gray-ramp) palette.
+ */
+export function isGrayscalePalette(palettePair) {
+  return !!(
+    palettePair &&
+    palettePair.theoretical &&
+    Array.isArray(palettePair.theoretical.grays)
+  );
+}
 
 /**
  * Get a palette preset by name
@@ -84,6 +133,12 @@ export function getPaletteOptions() {
       title: "Spectra 6 (Default)",
       description: "6-color ACeP palette for Waveshare and similar displays",
     },
+    {
+      value: "grayscale16",
+      title: "Grayscale 16 (GC16)",
+      description:
+        "16-level grayscale for IT8951 panels (e.g. reTerminal E1003)",
+    },
   ];
 }
 
@@ -96,6 +151,23 @@ export function getPaletteOptions() {
 function validateSinglePalette(palette, name) {
   if (!palette || typeof palette !== "object") {
     throw new Error(`${name} palette must be an object`);
+  }
+
+  // Grayscale palette: a `grays` array of [r,g,b] levels (2..256 entries).
+  if (Array.isArray(palette.grays)) {
+    if (palette.grays.length < 2) {
+      throw new Error(`${name} grayscale palette must have at least 2 levels`);
+    }
+    for (const level of palette.grays) {
+      if (
+        !Array.isArray(level) ||
+        level.length !== 3 ||
+        level.some((c) => typeof c !== "number" || c < 0 || c > 255)
+      ) {
+        throw new Error(`Invalid grayscale level in ${name} palette`);
+      }
+    }
+    return;
   }
 
   const requiredColors = ["black", "white", "yellow", "red", "blue", "green"];
