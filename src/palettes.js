@@ -90,11 +90,16 @@ function grayFromLstar(L) {
   return Math.max(0, Math.min(255, Math.round(s * 255)));
 }
 
-// Perceptually-even (linear in L*) gray ramp between the measured endpoints.
-function buildCalibratedGrayRamp(blackL, whiteL, levels) {
+// Gray ramp between the measured endpoints. gamma shapes the panel's mid-level
+// response: gamma=1 is perceptually even (linear in L*); gamma>1 darkens the
+// mid levels, gamma<1 lightens them. Tune it so the preview matches the panel,
+// since the real GC16 level->luminance curve is not exactly L*-linear.
+function buildCalibratedGrayRamp(blackL, whiteL, levels, gamma = 1) {
   const grays = [];
   for (let i = 0; i < levels; i++) {
-    const L = blackL + (i / (levels - 1)) * (whiteL - blackL);
+    const t = i / (levels - 1);
+    const shaped = gamma === 1 ? t : Math.pow(t, gamma);
+    const L = blackL + shaped * (whiteL - blackL);
     const v = grayFromLstar(L);
     grays.push([v, v, v]);
   }
@@ -115,15 +120,18 @@ function buildCalibratedGrayRamp(blackL, whiteL, levels) {
  * @param {Object} [opts]
  * @param {number} [opts.blackY] Relative luminance Y (0..1) of full black.
  * @param {number} [opts.whiteY] Relative luminance Y (0..1) of full white.
+ * @param {number} [opts.gamma] Mid-level shaping (1 = linear in L*; >1 darkens).
  */
 export function makeGrayscale16({
   blackY = GRAY_BLACK_Y,
   whiteY = GRAY_WHITE_Y,
+  gamma = 1,
 } = {}) {
   const perceived = buildCalibratedGrayRamp(
     lstarFromY(blackY),
     lstarFromY(whiteY),
     16,
+    gamma,
   );
   const toC = (a) => ({ r: a[0], g: a[1], b: a[2] });
   return {

@@ -115,13 +115,16 @@ async function processImageFile(inputPath, outputPath, options) {
     }
   } else if (
     options.grayBlackY !== undefined ||
-    options.grayWhiteY !== undefined
+    options.grayWhiteY !== undefined ||
+    options.grayGamma !== undefined
   ) {
     // GC16 panel-calibrated grayscale: derive the perceived ramp from the two
-    // measured luminance endpoints (theoretical stays the full output ramp).
+    // measured luminance endpoints + a mid-level gamma (theoretical stays the
+    // full output ramp).
     palette = makeGrayscale16({
       blackY: options.grayBlackY,
       whiteY: options.grayWhiteY,
+      gamma: options.grayGamma,
     });
   } else {
     palette = getPalette(options.palettePreset) || SPECTRA6;
@@ -297,6 +300,11 @@ program
   .option(
     "--gray-white-y <Y>",
     "GC16 grayscale: measured relative luminance (0..1) of full white",
+    parseFloat,
+  )
+  .option(
+    "--gray-gamma <g>",
+    "GC16 grayscale: mid-level gamma (1 = linear in L*, >1 darkens mids)",
     parseFloat,
   )
   .option(
