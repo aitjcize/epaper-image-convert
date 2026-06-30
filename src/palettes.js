@@ -75,7 +75,9 @@ const GRAY16_RAMP = buildGrayRamp(16);
 //
 // GRAY_BLACK_Y / GRAY_WHITE_Y are RELATIVE LUMINANCE (Y, 0..1) measured on the
 // panel (display full black / full white). MEASURE on your panel and update.
-const GRAY_BLACK_Y = 0.02;
+// black=0 keeps blacks at pure black (CDR compresses only the white end) for
+// punchier shadows; raise it toward the panel's real black for WYSIWYG.
+const GRAY_BLACK_Y = 0;
 const GRAY_WHITE_Y = 0.9;
 
 // CIE L* (0..100) of a relative luminance Y (0..1).
