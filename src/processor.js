@@ -368,12 +368,27 @@ const DIFFUSION_MATRICES = {
  * @param {Array} ditherPaletteArray - Palette array for error diffusion calculations
  * @param {string} algorithm - Dithering algorithm name
  */
+// sRGB (0..255) <-> linear-light (0..1), per channel. Diffusion error should be
+// distributed in linear light: the eye averages the linear luminance of the
+// dithered dots, not their gamma-encoded values, so a 50/50 black/white dither
+// reads as linear Y=0.5 (a light gray), not mid-gray. Diffusing in linear keeps
+// the dithered average luminance correct -- important with only 16 levels.
+const srgbToLinear = (c) => {
+  c /= 255;
+  return c > 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92;
+};
+const linearToSrgb = (l) => {
+  const c = l > 0.0031308 ? 1.055 * Math.pow(l, 1 / 2.4) - 0.055 : 12.92 * l;
+  return c * 255;
+};
+
 function applyErrorDiffusionDither(
   imageData,
   method,
   outputPaletteArray,
   ditherPaletteArray,
   algorithm,
+  linearLight = false,
 ) {
   const width = imageData.width;
   const height = imageData.height;
@@ -389,25 +404,39 @@ function applyErrorDiffusionDither(
       ? ditherPaletteArray.map(([r, g, b]) => rgbToLab(r, g, b))
       : null;
 
+  // In linear-light mode the working value + diffused error live in linear space
+  // (0..1) and the nearest-level match still happens in sRGB/LAB. In sRGB mode
+  // decode/encode are identities and hi=255, so the output is unchanged.
+  const decode = linearLight ? srgbToLinear : (c) => c;
+  const encode = linearLight ? linearToSrgb : (w) => w;
+  const hi = linearLight ? 1 : 255;
+  const ditherWork = linearLight
+    ? ditherPaletteArray.map(([r, g, b]) => [
+        srgbToLinear(r),
+        srgbToLinear(g),
+        srgbToLinear(b),
+      ])
+    : ditherPaletteArray;
+
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
       const errIdx = (y * width + x) * 3;
 
-      const oldR = Math.max(0, Math.min(255, data[idx] + errors[errIdx]));
-      const oldG = Math.max(
+      const wR = Math.max(0, Math.min(hi, decode(data[idx]) + errors[errIdx]));
+      const wG = Math.max(
         0,
-        Math.min(255, data[idx + 1] + errors[errIdx + 1]),
+        Math.min(hi, decode(data[idx + 1]) + errors[errIdx + 1]),
       );
-      const oldB = Math.max(
+      const wB = Math.max(
         0,
-        Math.min(255, data[idx + 2] + errors[errIdx + 2]),
+        Math.min(hi, decode(data[idx + 2]) + errors[errIdx + 2]),
       );
 
       const colorIdx = findClosestColor(
-        oldR,
-        oldG,
-        oldB,
+        encode(wR),
+        encode(wG),
+        encode(wB),
         method,
         ditherPaletteArray,
         ditherPaletteLab,
@@ -418,10 +447,10 @@ function applyErrorDiffusionDither(
       data[idx + 1] = newG;
       data[idx + 2] = newB;
 
-      const [ditherR, ditherG, ditherB] = ditherPaletteArray[colorIdx];
-      const errR = oldR - ditherR;
-      const errG = oldG - ditherG;
-      const errB = oldB - ditherB;
+      const [ditherR, ditherG, ditherB] = ditherWork[colorIdx];
+      const errR = wR - ditherR;
+      const errG = wG - ditherG;
+      const errB = wB - ditherB;
 
       for (const [dx, dy, weight] of diffusionMatrix) {
         const nx = x + dx;
@@ -1004,6 +1033,7 @@ export function processImage(source, options = {}) {
     panY = 0,
     skipDithering = false,
     usePerceivedOutput = false,
+    linearDither,
     verbose = false,
     createCanvas = null,
   } = options;
@@ -1190,9 +1220,16 @@ export function processImage(source, options = {}) {
     const outputPaletteArray = paletteToArray(outputPalette);
     const ditherPaletteArray = paletteToArray(palette.perceived);
 
+    // Diffuse error in linear light for grayscale (GC16) by default -- few
+    // levels make gamma-space error diffusion visibly wrong. Callers can force
+    // it on/off via options.linearDither. Color keeps its tuned sRGB behavior.
+    const useLinearDither =
+      linearDither !== undefined ? linearDither : palette?.mode === "grayscale";
+
     if (verbose) {
       console.log(
-        `  Applying ${params.ditherAlgorithm || "floyd-steinberg"} dithering`,
+        `  Applying ${params.ditherAlgorithm || "floyd-steinberg"} dithering` +
+          (useLinearDither ? " (linear light)" : ""),
       );
     }
 
@@ -1202,6 +1239,7 @@ export function processImage(source, options = {}) {
       outputPaletteArray,
       ditherPaletteArray,
       params.ditherAlgorithm || "floyd-steinberg",
+      useLinearDither,
     );
   }
 
