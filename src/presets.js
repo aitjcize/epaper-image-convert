@@ -120,7 +120,7 @@ export const GRAYSCALE_PRESET = {
   exposure: 1.0,
   saturation: 0.0,
   toneMode: "contrast",
-  contrast: 1.0,
+  contrast: 1.1,
   colorMethod: "lab",
   ditherAlgorithm: "floyd-steinberg",
   compressDynamicRange: true,
