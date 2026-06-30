@@ -74,11 +74,12 @@ const GRAY16_RAMP = buildGrayRamp(16);
 // white are 0/255 and CDR is a no-op) and makes the preview match the panel.
 //
 // GRAY_BLACK_Y / GRAY_WHITE_Y are RELATIVE LUMINANCE (Y, 0..1) measured on the
-// panel (display full black / full white). MEASURE on your panel and update.
-// black=0 keeps blacks at pure black (CDR compresses only the white end) for
-// punchier shadows; raise it toward the panel's real black for WYSIWYG.
-const GRAY_BLACK_Y = 0;
-const GRAY_WHITE_Y = 0.9;
+// panel (display full black / full white); GRAY_GAMMA shapes the mid-level
+// ramp (1 = perceptually linear, >1 darkens mids). Defaults are the measured
+// ED103TC2 (Seeed reTerminal E1003) calibration. MEASURE + update for your panel.
+const GRAY_BLACK_Y = 0.009;
+const GRAY_WHITE_Y = 0.65;
+const GRAY_GAMMA = 1.42;
 
 // CIE L* (0..100) of a relative luminance Y (0..1).
 const lstarFromY = (y) => (y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y);
@@ -125,7 +126,7 @@ function buildCalibratedGrayRamp(blackL, whiteL, levels, gamma = 1) {
 export function makeGrayscale16({
   blackY = GRAY_BLACK_Y,
   whiteY = GRAY_WHITE_Y,
-  gamma = 1,
+  gamma = GRAY_GAMMA,
 } = {}) {
   const perceived = buildCalibratedGrayRamp(
     lstarFromY(blackY),
