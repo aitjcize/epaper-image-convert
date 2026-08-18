@@ -99,6 +99,43 @@ export function rgbToLab(r, g, b) {
   return xyzToLab(x, y, z);
 }
 
+function labToXyz(L, a, b) {
+  let y = (L + 16) / 116;
+  let x = a / 500 + y;
+  let z = y - b / 200;
+
+  x = x > 0.206897 ? Math.pow(x, 3) : (x - 16 / 116) / 7.787;
+  y = y > 0.206897 ? Math.pow(y, 3) : (y - 16 / 116) / 7.787;
+  z = z > 0.206897 ? Math.pow(z, 3) : (z - 16 / 116) / 7.787;
+
+  return [x * 95.047, y * 100.0, z * 108.883];
+}
+
+function xyzToRgb(x, y, z) {
+  x = x / 100;
+  y = y / 100;
+  z = z / 100;
+
+  let r = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
+  let g = x * -0.969266 + y * 1.8760108 + z * 0.041556;
+  let b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
+
+  r = r > 0.0031308 ? 1.055 * Math.pow(r, 1 / 2.4) - 0.055 : 12.92 * r;
+  g = g > 0.0031308 ? 1.055 * Math.pow(g, 1 / 2.4) - 0.055 : 12.92 * g;
+  b = b > 0.0031308 ? 1.055 * Math.pow(b, 1 / 2.4) - 0.055 : 12.92 * b;
+
+  return [
+    Math.max(0, Math.min(255, Math.round(r * 255))),
+    Math.max(0, Math.min(255, Math.round(g * 255))),
+    Math.max(0, Math.min(255, Math.round(b * 255))),
+  ];
+}
+
+function labToRgb(L, a, b) {
+  const [x, y, z] = labToXyz(L, a, b);
+  return xyzToRgb(x, y, z);
+}
+
 function deltaE(lab1, lab2) {
   const dL = lab1[0] - lab2[0];
   const da = lab1[1] - lab2[1];
@@ -460,34 +497,27 @@ function preprocessImage(imageData, params, perceivedPalette) {
     );
   }
 
-  // 4. Compress dynamic range into the display's measured black..white range.
-  // Per-channel in linear light (relative colorimetric intent): each channel
-  // is remapped onto [measured_black_c, measured_white_c], so pure white
-  // lands exactly on the panel's white point and dithers with zero error --
-  // no colored speckle on white backgrounds (and pure black likewise).
-  // Chromatic adaptation hides the panel white's slight tint from the
-  // viewer, so nothing is lost by not forcing neutrality. The mapping is a
-  // fixed per-channel byte transform, so it collapses into three 256-entry
-  // LUTs.
+  // 4. Compress dynamic range to display's actual luminance range
   if (params.compressDynamicRange && perceivedPalette) {
     const paletteBlack = perceivedPalette.black;
     const paletteWhite = perceivedPalette.white;
 
-    const luts = ["r", "g", "b"].map((ch) => {
-      const blackLin = srgbToLinear(paletteBlack[ch]);
-      const range = srgbToLinear(paletteWhite[ch]) - blackLin;
-      const lut = new Uint8ClampedArray(256);
-      for (let v = 0; v < 256; v++) {
-        lut[v] = linearToSrgb(blackLin + srgbToLinear(v) * range);
-      }
-      return lut;
-    });
+    const [blackL] = rgbToLab(paletteBlack.r, paletteBlack.g, paletteBlack.b);
+    const [whiteL] = rgbToLab(paletteWhite.r, paletteWhite.g, paletteWhite.b);
 
     const data = imageData.data;
     for (let i = 0; i < data.length; i += 4) {
-      data[i] = luts[0][data[i]];
-      data[i + 1] = luts[1][data[i + 1]];
-      data[i + 2] = luts[2][data[i + 2]];
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const [l, a, bLab] = rgbToLab(r, g, b);
+      const compressedL = blackL + (l / 100) * (whiteL - blackL);
+      const [newR, newG, newB] = labToRgb(compressedL, a, bLab);
+
+      data[i] = newR;
+      data[i + 1] = newG;
+      data[i + 2] = newB;
     }
   }
 }
@@ -1165,10 +1195,18 @@ export function processImage(source, options = {}) {
     console.log(`  Applying tone mapping (${params.toneMode || "contrast"})`);
   }
   if (verbose && params.compressDynamicRange) {
-    const pb = palette.perceived.black;
-    const pw = palette.perceived.white;
+    const [blackL] = rgbToLab(
+      palette.perceived.black.r,
+      palette.perceived.black.g,
+      palette.perceived.black.b,
+    );
+    const [whiteL] = rgbToLab(
+      palette.perceived.white.r,
+      palette.perceived.white.g,
+      palette.perceived.white.b,
+    );
     console.log(
-      `  Compressing dynamic range per channel to (${pb.r},${pb.g},${pb.b})-(${pw.r},${pw.g},${pw.b})`,
+      `  Compressing dynamic range to L* ${Math.round(blackL)}-${Math.round(whiteL)}`,
     );
   }
   const processingParams = { ...params, measuredPalette: palette.perceived };
