@@ -14,13 +14,13 @@ Convert images for e-paper displays with advanced tone mapping, dithering, and c
 ## Installation
 
 ```bash
-npm install epaper-image-convert
+npm install @aitjcize/epaper-image-convert
 ```
 
 Or install globally for CLI use:
 
 ```bash
-npm install -g epaper-image-convert
+npm install -g @aitjcize/epaper-image-convert
 ```
 
 ## CLI Usage
