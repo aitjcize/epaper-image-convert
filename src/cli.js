@@ -41,6 +41,12 @@ import {
   getDitherOptions,
 } from "./presets.js";
 
+import {
+  parseDeviceConfig,
+  paletteFromDeviceConfig,
+  paramsFromDeviceConfig,
+} from "./device-config.js";
+
 // Read the version from package.json so --version stays in sync with releases.
 const PKG_VERSION = JSON.parse(
   fs.readFileSync(
@@ -104,7 +110,10 @@ async function processImageFile(inputPath, outputPath, options) {
     createCanvas,
   );
 
-  // Get palette
+  // Get palette. An explicit --palette or --palette-preset wins; the device
+  // config's calibration comes next, with --gray-* overriding its endpoints.
+  const deviceConfig = options.deviceConfigData || null;
+  const fromCli = (name) => program.getOptionValueSource(name) === "cli";
   let palette;
   if (options.palette) {
     try {
@@ -113,6 +122,12 @@ async function processImageFile(inputPath, outputPath, options) {
       console.error(`Error parsing palette JSON: ${e.message}`);
       process.exit(1);
     }
+  } else if (deviceConfig && !fromCli("palettePreset")) {
+    palette = paletteFromDeviceConfig(deviceConfig, {
+      blackY: options.grayBlackY,
+      whiteY: options.grayWhiteY,
+      gamma: options.grayGamma,
+    });
   } else if (
     options.grayBlackY !== undefined ||
     options.grayWhiteY !== undefined ||
@@ -130,9 +145,23 @@ async function processImageFile(inputPath, outputPath, options) {
     palette = getPalette(options.palettePreset) || SPECTRA6;
   }
 
-  // Get processing parameters
+  // Get processing parameters: the device config's settings stand in for the
+  // preset (an explicit -p still wins), and individual flags override either.
+  const presetExplicit =
+    program.getOptionValueSource("processingPreset") === "cli";
   let processingParams;
-  if (options.processingPreset && options.processingPreset !== "custom") {
+  if (deviceConfig && deviceConfig.processing && !presetExplicit) {
+    processingParams = {
+      ...DEFAULT_PARAMS,
+      ...paramsFromDeviceConfig(deviceConfig),
+    };
+    if (options.verbose) {
+      console.log(`  Using processing settings from device config`);
+    }
+  } else if (
+    options.processingPreset &&
+    options.processingPreset !== "custom"
+  ) {
     const preset = getPreset(options.processingPreset);
     if (!preset) {
       console.error(`Unknown processing preset: ${options.processingPreset}`);
@@ -171,10 +200,24 @@ async function processImageFile(inputPath, outputPath, options) {
   if (options.compressDynamicRange !== undefined)
     processingParams.compressDynamicRange = options.compressDynamicRange;
 
-  // Parse dimensions
-  const { width: displayWidth, height: displayHeight } = parseDimension(
+  // Panel size, orientation and layout: explicit flags, else the device
+  // config, else the option defaults.
+  let { width: displayWidth, height: displayHeight } = parseDimension(
     options.dimension,
   );
+  if (deviceConfig && deviceConfig.width && !fromCli("dimension")) {
+    displayWidth = deviceConfig.width;
+    displayHeight = deviceConfig.height;
+  }
+  const displayOrientation =
+    options.orientation ?? (deviceConfig ? deviceConfig.orientation : null);
+  const layout = (deviceConfig && deviceConfig.processing) || {};
+  const scaleMode = fromCli("scaleMode")
+    ? options.scaleMode
+    : (layout.scaleMode ?? options.scaleMode);
+  const backgroundColor = fromCli("backgroundColor")
+    ? options.backgroundColor
+    : (layout.backgroundColor ?? options.backgroundColor);
 
   // Process image
   const { canvas, originalCanvas } = processImage(correctedCanvas, {
@@ -182,9 +225,9 @@ async function processImageFile(inputPath, outputPath, options) {
     displayHeight,
     palette,
     params: processingParams,
-    orientation: options.orientation,
-    scaleMode: options.scaleMode,
-    backgroundColor: options.backgroundColor,
+    orientation: displayOrientation,
+    scaleMode,
+    backgroundColor,
     skipDithering: options.skipDithering,
     usePerceivedOutput: options.usePerceivedOutput,
     verbose: options.verbose,
@@ -293,6 +336,13 @@ program
     "Custom palette JSON (overrides --palette-preset)",
   )
   .option(
+    "--device-config <file>",
+    "Config exported from an ESP32 PhotoFrame's web UI (Maintenance > Config Backup > Export Config): " +
+      "its palette, processing settings, orientation and panel size become the defaults; " +
+      "explicit flags (-d, -p, --exposure, --gray-*, ...) still win, and --palette or " +
+      "--palette-preset replaces its palette",
+  )
+  .option(
     "--gray-black-y <Y>",
     "GC16 grayscale: measured relative luminance (0..1) of full black",
     parseFloat,
@@ -385,6 +435,46 @@ program
       if (!fs.existsSync(inputPath)) {
         console.error(`Error: Input not found: ${inputPath}`);
         process.exit(1);
+      }
+
+      // Read the device config once; every file converts with the same one.
+      if (options.deviceConfig) {
+        const configPath = path.resolve(options.deviceConfig);
+        let text;
+        try {
+          text = fs.readFileSync(configPath, "utf8");
+        } catch (e) {
+          console.error(
+            `Error: Cannot read device config ${configPath}: ${e.message}`,
+          );
+          process.exit(1);
+        }
+        try {
+          options.deviceConfigData = parseDeviceConfig(text);
+        } catch (e) {
+          console.error(
+            `Error: Invalid device config ${configPath}: ${e.message}`,
+          );
+          process.exit(1);
+        }
+        const cfg = options.deviceConfigData;
+        if (!cfg.width && program.getOptionValueSource("dimension") !== "cli") {
+          console.error(
+            `Error: ${configPath} has no system_info (exported by older firmware), ` +
+              "so the panel size is unknown. Pass -d WxH (e.g. -d 800x480) or " +
+              "re-export the config from current firmware.",
+          );
+          process.exit(1);
+        }
+        if (options.verbose) {
+          console.log(
+            `Device config: ${configPath} (board=${cfg.boardName || "unknown"}` +
+              (cfg.width ? `, ${cfg.width}x${cfg.height}` : "") +
+              (cfg.grayscale ? ", grayscale" : "") +
+              (cfg.orientation ? `, ${cfg.orientation}` : "") +
+              ")",
+          );
+        }
       }
 
       const stats = fs.statSync(inputPath);

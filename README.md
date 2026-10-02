@@ -102,6 +102,35 @@ epaper-image-convert input.jpg --palette '{
 }'
 ```
 
+### ESP32 PhotoFrame Device Config
+
+An [ESP32 PhotoFrame](https://github.com/aitjcize/esp32-photoframe) exports
+its settings from the web UI (**Settings → Maintenance → Config Backup →
+Export Config**). Point the CLI at that file to convert for that frame
+without re-typing its calibration:
+
+```bash
+epaper-image-convert input.jpg output.epdgz --device-config living-room-config.json
+```
+
+The file supplies the defaults:
+
+- `palette` → the panel's calibrated perceived colours (paired with the
+  Spectra 6 theoretical palette), or on a GC16 panel the measured luminance
+  endpoints the grayscale ramp is derived from
+- `processing` → the processing parameters (in place of `-p`), plus the
+  `--scale-mode` / `--background-color` layout
+- `config.display_orientation` → `--orientation`
+- `system_info` → the panel size (`-d`); exports from older firmware lack it,
+  so pass `-d WxH` for those
+
+Anything given explicitly on the command line still wins: `-d`, `-p`,
+`--exposure` and friends, `--scale-mode`, `--orientation`, and `--gray-*`
+(which override the file's endpoints one at a time). `--palette` or an
+explicit `--palette-preset` replaces the file's palette entirely.
+
+The same file works with the frame's own `photoframe-process --device-config`.
+
 ### Generate Thumbnails
 
 ```bash
@@ -133,6 +162,8 @@ Options:
   -f, --format <format>           Output format: png or bmp (default: png)
   --palette-preset <name>         Palette preset (default: spectra6)
   --palette <json>                Custom palette JSON
+  --device-config <file>          ESP32 PhotoFrame config export: palette,
+                                  processing, orientation and size defaults
   -l, --list-presets              List available presets and exit
   -p, --processing-preset <name>  Processing preset (default: balanced)
   --exposure <value>              Exposure multiplier (0.5-2.0)

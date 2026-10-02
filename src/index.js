@@ -39,6 +39,14 @@ export {
   isGrayscalePalette,
 } from "./palettes.js";
 
+// Re-export from device-config
+export {
+  parseDeviceConfig,
+  paletteFromDeviceConfig,
+  paramsFromDeviceConfig,
+  isGrayCalibration,
+} from "./device-config.js";
+
 // Re-export from presets
 export {
   PRESETS,
