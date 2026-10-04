@@ -9,7 +9,16 @@ import { program } from "commander";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createCanvas, loadImage } from "canvas";
+let createCanvas, loadImage;
+try {
+  ({ createCanvas, loadImage } = await import("canvas"));
+} catch {
+  console.error(
+    "Error: the 'canvas' package is not installed. It is an optional dependency that " +
+      "needs native build tools; see https://www.npmjs.com/package/canvas#compiling",
+  );
+  process.exit(1);
+}
 import ExifReader from "exifreader";
 
 import {

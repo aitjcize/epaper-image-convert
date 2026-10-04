@@ -52,9 +52,11 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "canvas": "3.2.1",
     "commander": "^14.0.2",
     "exifreader": "^4.14.1"
+  },
+  "optionalDependencies": {
+    "canvas": "3.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
