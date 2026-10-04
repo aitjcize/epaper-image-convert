@@ -181,8 +181,8 @@ export function parseDeviceConfig(data) {
   // The firmware names grayscale panels "gc16" (and would name an 8- or
   // 4-level one "gc8"/"gc4"). Without system_info the palette shape still
   // tells: only a grayscale panel reports luminance endpoints.
-  const grayscale = systemInfo
-    ? (systemInfo.display_type || "").startsWith("gc")
+  const grayscale = systemInfo?.display_type
+    ? systemInfo.display_type.startsWith("gc")
     : isGrayCalibration(palette);
 
   return {

@@ -123,6 +123,10 @@ async function processImageFile(inputPath, outputPath, options) {
   // config's calibration comes next, with --gray-* overriding its endpoints.
   const deviceConfig = options.deviceConfigData || null;
   const fromCli = (name) => program.getOptionValueSource(name) === "cli";
+  const grayRequested =
+    options.grayBlackY !== undefined ||
+    options.grayWhiteY !== undefined ||
+    options.grayGamma !== undefined;
   let palette;
   if (options.palette) {
     try {
@@ -131,17 +135,18 @@ async function processImageFile(inputPath, outputPath, options) {
       console.error(`Error parsing palette JSON: ${e.message}`);
       process.exit(1);
     }
-  } else if (deviceConfig && !fromCli("palettePreset")) {
+  } else if (
+    deviceConfig &&
+    !fromCli("palettePreset") &&
+    // --gray-* on a colour export means "grayscale anyway", as without a file
+    (deviceConfig.grayscale || !grayRequested)
+  ) {
     palette = paletteFromDeviceConfig(deviceConfig, {
       blackY: options.grayBlackY,
       whiteY: options.grayWhiteY,
       gamma: options.grayGamma,
     });
-  } else if (
-    options.grayBlackY !== undefined ||
-    options.grayWhiteY !== undefined ||
-    options.grayGamma !== undefined
-  ) {
+  } else if (grayRequested) {
     // GC16 panel-calibrated grayscale: derive the perceived ramp from the two
     // measured luminance endpoints + a mid-level gamma (theoretical stays the
     // full output ramp).

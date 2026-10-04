@@ -158,31 +158,60 @@ epaper-image-convert input.jpg /tmp -f bmp  # Creates /tmp/input.bmp
 
 ```
 Options:
-  -d, --dimension <WxH>           Display dimension (default: 800x480)
-  -f, --format <format>           Output format: png or bmp (default: png)
-  --palette-preset <name>         Palette preset (default: spectra6)
-  --palette <json>                Custom palette JSON
-  --device-config <file>          ESP32 PhotoFrame config export: palette,
-                                  processing, orientation and size defaults
-  -l, --list-presets              List available presets and exit
-  -p, --processing-preset <name>  Processing preset (default: balanced)
-  --exposure <value>              Exposure multiplier (0.5-2.0)
-  --saturation <value>            Saturation multiplier (0.5-2.0)
-  --contrast <value>              Contrast multiplier (0.5-2.0)
-  --tone-mode <mode>              Tone mapping: scurve or contrast
-  --scurve-strength <value>       S-curve strength (0.0-1.0)
-  --scurve-shadow <value>         S-curve shadow boost (0.0-1.0)
-  --scurve-highlight <value>      S-curve highlight compress (0.5-5.0)
-  --scurve-midpoint <value>       S-curve midpoint (0.3-0.7)
-  --color-method <method>         Color matching: rgb or lab
-  --dither-algorithm <algorithm>  floyd-steinberg, stucki, burkes, sierra
-  --compress-dynamic-range        Compress to display range (default for balanced)
-  --skip-rotation                 Skip portrait-to-landscape rotation
-  --skip-dithering                Skip dithering step
-  --use-perceived-output          Use perceived palette for output
-  -t, --thumbnail <path>          Generate thumbnail
-  --thumbnail-dimension <WxH>     Thumbnail size (default: 400x240)
-  -v, --verbose                   Enable verbose output
+  -V, --version                       output the version number
+  -l, --list-presets                  List available presets and exit
+  -d, --dimension <WxH>               Display dimension (e.g., 800x480)
+                                      (default: "800x480")
+  -f, --format <format>               Output format: epdgz, png, or bmp
+                                      (default: "epdgz")
+  --palette-preset <name>             Palette preset: spectra6, grayscale16,
+                                      default (default: "spectra6")
+  --palette <json>                    Custom palette JSON (overrides
+                                      --palette-preset)
+  --device-config <file>              Config exported from an ESP32 PhotoFrame's
+                                      web UI (Maintenance > Config Backup >
+                                      Export Config): its palette, processing
+                                      settings, orientation and panel size
+                                      become the defaults; explicit flags (-d,
+                                      -p, --exposure, --gray-*, ...) still win,
+                                      and --palette or --palette-preset replaces
+                                      its palette
+  --gray-black-y <Y>                  GC16 grayscale: measured relative
+                                      luminance (0..1) of full black
+  --gray-white-y <Y>                  GC16 grayscale: measured relative
+                                      luminance (0..1) of full white
+  --gray-gamma <g>                    GC16 grayscale: mid-level gamma (1 =
+                                      linear in L*, >1 darkens mids)
+  -p, --processing-preset <name>      Processing preset: balanced, dynamic,
+                                      vivid, soft, grayscale (default:
+                                      "balanced")
+  --exposure <value>                  Exposure multiplier (0.5-2.0)
+  --saturation <value>                Saturation multiplier (0.5-2.0)
+  --contrast <value>                  Contrast multiplier (0.5-2.0)
+  --tone-mode <mode>                  Tone mapping mode: scurve or contrast
+  --scurve-strength <value>           S-curve overall strength (0.0-1.0)
+  --scurve-shadow <value>             S-curve shadow boost (0.0-1.0)
+  --scurve-highlight <value>          S-curve highlight compress (0.5-5.0)
+  --scurve-midpoint <value>           S-curve midpoint (0.3-0.7)
+  --color-method <method>             Color matching: rgb or lab
+  --dither-algorithm <algorithm>      Dithering algorithm: floyd-steinberg,
+                                      stucki, burkes, or sierra
+  --compress-dynamic-range            Compress dynamic range to display range
+  --no-compress-dynamic-range         Disable dynamic range compression
+  --orientation <mode>                Display orientation: landscape or portrait
+                                      (default: native)
+  --scale-mode <mode>                 Scale mode: cover (crop to fill) or fit
+                                      (letterbox) (default: "cover")
+  --background-color <name>           Background palette color for fit mode
+                                      (black, white, etc.) (default: "white")
+  --skip-dithering                    Skip dithering step
+  --use-perceived-output              Use perceived palette for output (for
+                                      preview)
+  -t, --thumbnail <path>              Generate thumbnail and save to path
+  --thumbnail-max-dimension <pixels>  Maximum thumbnail dimension (longest side)
+                                      (default: "400")
+  -v, --verbose                       Enable verbose output
+  -h, --help                          display help for command
 ```
 
 ## Library Usage

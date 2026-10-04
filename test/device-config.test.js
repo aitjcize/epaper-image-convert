@@ -389,3 +389,14 @@ describe("epaper-image-convert --device-config", () => {
     expect(invalid.stderr).toContain("not a device config export");
   });
 });
+
+describe("grayscale detection without display_type", () => {
+  test("falls back to the palette shape when system_info lacks display_type", () => {
+    const cfg = parseDeviceConfig({
+      palette: { black_y: 0.012, white_y: 0.62 },
+      system_info: { width: 1872, height: 1404 },
+    });
+    expect(cfg.grayscale).toBe(true);
+    expect(cfg.width).toBe(1872);
+  });
+});
